@@ -1,221 +1,117 @@
-name: Mundo V1 - APK Android
+name: MUNDO V1.1 - Visual 3D Mobile
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Java 17
+      - name: Configurar Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Configurar variaveis Android
+      - name: Instalar dependencias Android
         shell: bash
         run: |
           set -euxo pipefail
 
-          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/android-sdk/cmdline-tools"
 
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
-          echo "$HOME/android-sdk/build-tools/34.0.0" >> "$GITHUB_PATH"
+          cd "$RUNNER_TEMP"
 
-      - name: Instalar Android SDK
-        shell: bash
-        run: |
-          set -euxo pipefail
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O cmdline-tools.zip
+
+          unzip -q cmdline-tools.zip
+
+          mv cmdline-tools "$HOME/android-sdk/cmdline-tools/latest"
 
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
-
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
-
-          cd /tmp
-
-          wget -q \
-            "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
-            -O cmdline-tools.zip
-
-          rm -rf /tmp/android-cmdline-tools
-
-          mkdir -p /tmp/android-cmdline-tools
-
-          unzip -q \
-            cmdline-tools.zip \
-            -d /tmp/android-cmdline-tools
-
-          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
-
-          cp -r \
-            /tmp/android-cmdline-tools/cmdline-tools/. \
-            "$ANDROID_HOME/cmdline-tools/latest/"
-
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
           yes | sdkmanager --licenses >/dev/null || true
 
-          sdkmanager --sdk_root="$ANDROID_HOME" --install \
+          sdkmanager \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-          yes | sdkmanager --licenses >/dev/null || true
+          adb start-server || true
 
-          test -d "$ANDROID_HOME/platforms/android-34"
-          test -d "$ANDROID_HOME/build-tools/34.0.0"
-          test -f "$ANDROID_HOME/platform-tools/adb"
-
-          echo "ANDROID SDK OK"
-
-      - name: Iniciar ADB
+      - name: Instalar Godot 4.3
         shell: bash
         run: |
           set -euxo pipefail
 
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
-
-          adb kill-server || true
-          adb start-server
-
-          sleep 3
-
-          adb version
-          adb devices
-
-      - name: Baixar Godot 4.3
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          cd /tmp
+          cd "$RUNNER_TEMP"
 
           wget -q \
-            "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip" \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
             -O godot.zip
 
           unzip -q godot.zip
 
           chmod +x Godot_v4.3-stable_linux.x86_64
 
-          cp \
-            Godot_v4.3-stable_linux.x86_64 \
-            "$GITHUB_WORKSPACE/Godot"
+          sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
 
-          chmod +x "$GITHUB_WORKSPACE/Godot"
+          godot --version
 
-          "$GITHUB_WORKSPACE/Godot" --version
-
-      - name: Instalar templates Android
+      - name: Instalar templates Android do Godot
         shell: bash
         run: |
           set -euxo pipefail
 
-          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
 
-          mkdir -p "$TEMPLATE_DIR"
-
-          cd /tmp
+          cd "$RUNNER_TEMP"
 
           wget -q \
-            "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz" \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
             -O templates.tpz
 
-          rm -rf godot_templates
+          unzip -q templates.tpz
 
-          mkdir -p godot_templates
+          mv templates/android_debug.apk \
+            "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
 
-          unzip -q \
-            templates.tpz \
-            -d godot_templates
+          mv templates/android_release.apk \
+            "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
 
-          cp -r \
-            godot_templates/templates/. \
-            "$TEMPLATE_DIR/"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
 
-          echo "Templates instalados:"
-
-          ls -lh "$TEMPLATE_DIR"
-
-          test -f "$TEMPLATE_DIR/android_debug.apk"
-          test -f "$TEMPLATE_DIR/android_release.apk"
-
-      - name: Criar chave Android
+      - name: Criar projeto MUNDO V1.1
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/.android"
-
-          rm -f "$HOME/.android/debug.keystore"
-
-          keytool \
-            -genkeypair \
-            -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
-
-          test -f "$HOME/.android/debug.keystore"
-
-          echo "Keystore OK"
-
-      - name: Configurar Godot
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          mkdir -p "$HOME/.config/godot"
-
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-
-          export/android/java_sdk_path = "$JAVA_HOME"
-          export/android/android_sdk_path = "$ANDROID_HOME"
-          EOF
-
-          echo "Configuracao Godot:"
-
-          cat "$HOME/.config/godot/editor_settings-4.tres"
-
-      - name: Preparar projeto
-        shell: bash
-        run: |
-          set -euxo pipefail
+          rm -rf project.godot Main.tscn scripts export_presets.cfg build
 
           mkdir -p scripts
           mkdir -p build
 
-      - name: Criar project.godot
-        shell: bash
-        run: |
           cat > project.godot <<'EOF'
+          ; Engine configuration file.
+          ; MUNDO V1.1
+
+          config_version=5
+
           [application]
 
-          config/name="Mundo V1"
-          config/description="Mundo V1 - exploracao e construcao"
+          config/name="MUNDO V1"
           run/main_scene="res://Main.tscn"
+          config/features=PackedStringArray("4.3", "GL Compatibility")
+          config/icon="res://icon.svg"
 
           [display]
 
@@ -223,15 +119,17 @@ jobs:
           window/size/viewport_height=720
           window/size/window_width_override=1280
           window/size/window_height_override=720
+          window/stretch/mode="canvas_items"
 
           [rendering]
 
           renderer/rendering_method="gl_compatibility"
           renderer/rendering_method.mobile="gl_compatibility"
-
           textures/vram_compression/import_etc2_astc=true
 
-          environment/defaults/default_clear_color=Color(0.38, 0.62, 0.88, 1)
+          [physics]
+
+          3d/default_gravity=18.0
 
           [input]
 
@@ -261,17 +159,6 @@ jobs:
           }
           EOF
 
-          echo "================================"
-          echo "ETC2/ASTC ATIVADO"
-          echo "================================"
-
-          grep \
-            "textures/vram_compression/import_etc2_astc=true" \
-            project.godot
-
-      - name: Criar Main.tscn
-        shell: bash
-        run: |
           cat > Main.tscn <<'EOF'
           [gd_scene load_steps=2 format=3]
 
@@ -281,296 +168,429 @@ jobs:
           script = ExtResource("1")
           EOF
 
-      - name: Criar main.gd
-        shell: bash
-        run: |
           cat > scripts/main.gd <<'EOF'
           extends Node3D
 
           var player: CharacterBody3D
           var camera: Camera3D
 
+          var joystick_center := Vector2.ZERO
+          var joystick_value := Vector2.ZERO
+          var joystick_active := false
+          var joystick_touch := -1
+
+          var yaw := 0.0
+          var pitch := -12.0
+
+          const SPEED := 5.5
+          const JUMP := 7.0
+          const WORLD_SIZE := 80.0
+
           func _ready():
-              create_environment()
               create_world()
               create_player()
-              create_interface()
+              create_camera()
+              create_ui()
 
-          func material(color: Color) -> StandardMaterial3D:
+          func material(color: Color, roughness := 0.8):
               var m := StandardMaterial3D.new()
               m.albedo_color = color
-              m.roughness = 0.85
+              m.roughness = roughness
               return m
 
-          func create_environment():
-
-              var world_environment := WorldEnvironment.new()
+          func create_world():
+              var env := WorldEnvironment.new()
               var environment := Environment.new()
 
-              environment.background_mode = Environment.BG_COLOR
-              environment.background_color = Color(0.38, 0.62, 0.88)
+              environment.background_mode = Environment.BG_SKY
 
-              environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-              environment.ambient_light_color = Color(0.8, 0.85, 1.0)
-              environment.ambient_light_energy = 0.8
+              var sky := Sky.new()
+              var sky_mat := ProceduralSkyMaterial.new()
 
-              world_environment.environment = environment
+              sky_mat.sky_top_color = Color("#4d8fd6")
+              sky_mat.sky_horizon_color = Color("#d9f0ff")
+              sky_mat.ground_bottom_color = Color("#7d8f73")
+              sky_mat.ground_horizon_color = Color("#d5e4cf")
+              sky_mat.sun_angle_max = 8.0
 
-              add_child(world_environment)
+              sky.material = sky_mat
+              environment.sky = sky
+
+              environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+              environment.ambient_light_energy = 0.75
+              environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+
+              env.environment = environment
+              add_child(env)
 
               var sun := DirectionalLight3D.new()
-
-              sun.rotation_degrees = Vector3(-50, -30, 0)
-              sun.light_energy = 1.2
+              sun.rotation_degrees = Vector3(-48, -30, 0)
+              sun.light_energy = 1.35
               sun.shadow_enabled = true
-
+              sun.directional_shadow_max_distance = 80.0
               add_child(sun)
 
-          func create_world():
-
               create_ground()
+              create_hills()
               create_water()
-
-              create_tree(Vector3(-12, 0, -8))
-              create_tree(Vector3(10, 0, -15))
-              create_tree(Vector3(20, 0, 5))
-              create_tree(Vector3(-20, 0, 12))
-              create_tree(Vector3(6, 0, 20))
-
-              create_rock(Vector3(5, 0, 5))
-              create_rock(Vector3(-7, 0, 10))
-              create_rock(Vector3(15, 0, 15))
-              create_rock(Vector3(-18, 0, -5))
+              create_trees()
+              create_rocks()
 
           func create_ground():
+              var mesh := PlaneMesh.new()
+              mesh.size = Vector2(WORLD_SIZE, WORLD_SIZE)
+              mesh.subdivide_width = 30
+              mesh.subdivide_depth = 30
 
-              var ground := StaticBody3D.new()
-
-              ground.position = Vector3(0, -1, 0)
-
+              var ground := MeshInstance3D.new()
+              ground.mesh = mesh
+              ground.material_override = material(Color("#4c8a45"), 1.0)
               add_child(ground)
 
-              var mesh := MeshInstance3D.new()
-              var box := BoxMesh.new()
-
-              box.size = Vector3(80, 2, 80)
-
-              mesh.mesh = box
-
-              mesh.material_override = material(
-                  Color(0.30, 0.60, 0.25)
-              )
-
-              ground.add_child(mesh)
+              var body := StaticBody3D.new()
+              body.position.y = -0.45
 
               var collision := CollisionShape3D.new()
               var shape := BoxShape3D.new()
-
-              shape.size = Vector3(80, 2, 80)
-
+              shape.size = Vector3(WORLD_SIZE, 1.0, WORLD_SIZE)
               collision.shape = shape
 
-              ground.add_child(collision)
+              body.add_child(collision)
+              add_child(body)
+
+          func create_hills():
+              var hill_data = [
+                  [Vector3(-28, 2.0, -22), Vector3(16, 4, 12)],
+                  [Vector3(28, 3.0, -28), Vector3(20, 6, 15)],
+                  [Vector3(-34, 2.5, 25), Vector3(18, 5, 14)],
+                  [Vector3(30, 1.5, 24), Vector3(14, 3, 11)],
+                  [Vector3(0, 1.2, -34), Vector3(30, 2.5, 10)]
+              ]
+
+              for data in hill_data:
+                  var hill := MeshInstance3D.new()
+                  var sphere := SphereMesh.new()
+                  sphere.radius = 1.0
+                  sphere.height = 2.0
+                  sphere.radial_segments = 32
+                  sphere.rings = 16
+                  hill.mesh = sphere
+                  hill.position = data[0]
+                  hill.scale = data[1]
+                  hill.material_override = material(Color("#3f7b3e"), 1.0)
+                  add_child(hill)
 
           func create_water():
-
               var water := MeshInstance3D.new()
-              var mesh := BoxMesh.new()
-
-              mesh.size = Vector3(24, 0.15, 16)
+              var mesh := PlaneMesh.new()
+              mesh.size = Vector2(26, 16)
+              mesh.subdivide_width = 20
+              mesh.subdivide_depth = 20
 
               water.mesh = mesh
-              water.position = Vector3(18, 0.1, -12)
+              water.position = Vector3(8, 0.08, 9)
 
-              water.material_override = material(
-                  Color(0.08, 0.45, 0.78)
-              )
+              var m := StandardMaterial3D.new()
+              m.albedo_color = Color(0.08, 0.38, 0.58, 0.78)
+              m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+              m.roughness = 0.15
+              m.metallic = 0.05
+              water.material_override = m
 
               add_child(water)
 
-          func create_tree(pos: Vector3):
+          func create_tree(pos: Vector3, scale_factor := 1.0):
+              var tree := Node3D.new()
+              tree.position = pos
+              tree.scale = Vector3.ONE * scale_factor
+              add_child(tree)
 
               var trunk := MeshInstance3D.new()
               var trunk_mesh := CylinderMesh.new()
-
-              trunk_mesh.top_radius = 0.35
-              trunk_mesh.bottom_radius = 0.45
-              trunk_mesh.height = 3.5
+              trunk_mesh.top_radius = 0.28
+              trunk_mesh.bottom_radius = 0.38
+              trunk_mesh.height = 3.0
+              trunk_mesh.radial_segments = 12
 
               trunk.mesh = trunk_mesh
+              trunk.position.y = 1.5
+              trunk.material_override = material(Color("#6b4329"), 1.0)
+              tree.add_child(trunk)
 
-              trunk.position = pos + Vector3(0, 1.75, 0)
+              var foliage_positions = [
+                  Vector3(0, 3.4, 0),
+                  Vector3(-0.8, 3.1, 0.2),
+                  Vector3(0.8, 3.2, 0.1),
+                  Vector3(0, 4.1, 0)
+              ]
 
-              trunk.material_override = material(
-                  Color(0.38, 0.20, 0.08)
-              )
+              for p in foliage_positions:
+                  var leaf := MeshInstance3D.new()
+                  var sphere := SphereMesh.new()
+                  sphere.radius = 1.25
+                  sphere.height = 2.1
+                  sphere.radial_segments = 18
+                  sphere.rings = 10
 
-              add_child(trunk)
+                  leaf.mesh = sphere
+                  leaf.position = p
+                  leaf.scale = Vector3(1.15, 0.9, 1.15)
+                  leaf.material_override = material(Color("#2f7438"), 1.0)
+                  tree.add_child(leaf)
 
-              var leaves := MeshInstance3D.new()
-              var leaves_mesh := SphereMesh.new()
+          func create_trees():
+              var positions = [
+                  Vector3(-18, 0, -14),
+                  Vector3(-12, 0, -25),
+                  Vector3(17, 0, -18),
+                  Vector3(24, 0, -10),
+                  Vector3(-25, 0, 12),
+                  Vector3(-15, 0, 27),
+                  Vector3(22, 0, 28),
+                  Vector3(32, 0, 12),
+                  Vector3(5, 0, -27),
+                  Vector3(-32, 0, -4),
+                  Vector3(35, 0, -25)
+              ]
 
-              leaves_mesh.radius = 2.2
-              leaves_mesh.height = 4.0
+              var i := 0
 
-              leaves.mesh = leaves_mesh
+              for p in positions:
+                  var s := 0.8 + float(i % 4) * 0.12
+                  create_tree(p, s)
+                  i += 1
 
-              leaves.position = pos + Vector3(0, 4.2, 0)
-
-              leaves.material_override = material(
-                  Color(0.10, 0.48, 0.18)
-              )
-
-              add_child(leaves)
-
-          func create_rock(pos: Vector3):
-
+          func create_rock(pos: Vector3, scale_value: Vector3):
               var rock := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
+              var sphere := SphereMesh.new()
 
-              mesh.radius = 1.0
-              mesh.height = 1.6
+              sphere.radius = 1.0
+              sphere.height = 1.7
+              sphere.radial_segments = 12
+              sphere.rings = 8
 
-              rock.mesh = mesh
-              rock.scale = Vector3(1.4, 0.7, 1.1)
-
-              rock.position = pos + Vector3(0, 0.6, 0)
-
-              rock.material_override = material(
-                  Color(0.40, 0.43, 0.45)
-              )
+              rock.mesh = sphere
+              rock.position = pos
+              rock.scale = scale_value
+              rock.material_override = material(Color("#77766d"), 1.0)
 
               add_child(rock)
 
+          func create_rocks():
+              create_rock(Vector3(-8, 0.5, -8), Vector3(1.5, 0.8, 1.0))
+              create_rock(Vector3(12, 0.4, -4), Vector3(1.0, 0.6, 1.3))
+              create_rock(Vector3(-25, 0.5, 5), Vector3(1.8, 0.9, 1.2))
+              create_rock(Vector3(27, 0.4, 5), Vector3(1.2, 0.7, 1.0))
+              create_rock(Vector3(2, 0.35, 20), Vector3(1.4, 0.5, 1.0))
+              create_rock(Vector3(-20, 0.35, 20), Vector3(0.9, 0.6, 1.4))
+
           func create_player():
-
               player = CharacterBody3D.new()
-
-              player.name = "Player"
-              player.position = Vector3(0, 2, 8)
-
+              player.position = Vector3(0, 2.0, 5)
               add_child(player)
 
-              var body := MeshInstance3D.new()
-              var body_mesh := CapsuleMesh.new()
+              var capsule := MeshInstance3D.new()
+              var capsule_mesh := CapsuleMesh.new()
 
-              body_mesh.radius = 0.45
-              body_mesh.height = 1.8
+              capsule_mesh.radius = 0.45
+              capsule_mesh.height = 1.8
+              capsule_mesh.radial_segments = 20
+              capsule_mesh.rings = 8
 
-              body.mesh = body_mesh
-              body.position.y = 0.9
+              capsule.mesh = capsule_mesh
+              capsule.position.y = 0.9
+              capsule.material_override = material(Color("#e8b34b"), 0.75)
+              player.add_child(capsule)
 
-              body.material_override = material(
-                  Color(0.15, 0.35, 0.75)
-              )
+              var head := MeshInstance3D.new()
+              var head_mesh := SphereMesh.new()
 
-              player.add_child(body)
+              head_mesh.radius = 0.38
+              head_mesh.height = 0.76
+              head_mesh.radial_segments = 20
+              head_mesh.rings = 12
+
+              head.mesh = head_mesh
+              head.position = Vector3(0, 2.05, 0)
+              head.material_override = material(Color("#f0c59a"), 0.75)
+              player.add_child(head)
 
               var collision := CollisionShape3D.new()
               var shape := CapsuleShape3D.new()
-
               shape.radius = 0.45
               shape.height = 1.8
-
               collision.shape = shape
               collision.position.y = 0.9
-
               player.add_child(collision)
 
+          func create_camera():
               camera = Camera3D.new()
-
-              camera.position = Vector3(0, 4, 7)
-
-              player.add_child(camera)
-
+              camera.position = Vector3(0, 4.0, 8.0)
               camera.current = true
+              add_child(camera)
 
-          func create_interface():
-
+          func create_ui():
               var layer := CanvasLayer.new()
-
+              layer.name = "MobileUI"
               add_child(layer)
 
               var title := Label.new()
-
               title.text = "MUNDO V1"
-              title.position = Vector2(30, 25)
-
-              title.add_theme_font_size_override(
-                  "font_size",
-                  32
-              )
-
+              title.position = Vector2(28, 24)
+              title.add_theme_font_size_override("font_size", 30)
+              title.add_theme_color_override("font_color", Color.WHITE)
               layer.add_child(title)
 
-              var info := Label.new()
+              var subtitle := Label.new()
+              subtitle.text = "V1.1 • EXPLORE"
+              subtitle.position = Vector2(30, 61)
+              subtitle.add_theme_font_size_override("font_size", 14)
+              subtitle.add_theme_color_override("font_color", Color("#d9f0ff"))
+              layer.add_child(subtitle)
 
-              info.text = "Explore o mundo"
-              info.position = Vector2(32, 68)
+              var hint := Label.new()
+              hint.text = "Explore • Colete • Construa"
+              hint.anchor_left = 0.5
+              hint.anchor_right = 0.5
+              hint.offset_left = -170
+              hint.offset_right = 170
+              hint.position.y = 25
+              hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+              hint.add_theme_font_size_override("font_size", 18)
+              hint.add_theme_color_override("font_color", Color("#ffffff"))
+              layer.add_child(hint)
 
-              info.add_theme_font_size_override(
-                  "font_size",
-                  18
-              )
+              var joystick := Control.new()
+              joystick.position = Vector2(45, 470)
+              joystick.size = Vector2(170, 170)
+              joystick.mouse_filter = Control.MOUSE_FILTER_PASS
+              layer.add_child(joystick)
 
-              layer.add_child(info)
+              var base := ColorRect.new()
+              base.position = Vector2(0, 0)
+              base.size = Vector2(150, 150)
+              base.color = Color(0.05, 0.08, 0.12, 0.35)
+              base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+              joystick.add_child(base)
+
+              var knob := ColorRect.new()
+              knob.name = "Knob"
+              knob.position = Vector2(52, 52)
+              knob.size = Vector2(46, 46)
+              knob.color = Color(1, 1, 1, 0.55)
+              knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+              joystick.add_child(knob)
+
+              joystick.gui_input.connect(_joystick_input.bind(joystick, knob))
+
+              var jump := Button.new()
+              jump.text = "PULAR"
+              jump.position = Vector2(1040, 545)
+              jump.size = Vector2(150, 70)
+              jump.add_theme_font_size_override("font_size", 20)
+              jump.modulate = Color(1, 1, 1, 0.8)
+              jump.pressed.connect(_jump)
+              layer.add_child(jump)
+
+              var action := Button.new()
+              action.text = "AÇÃO"
+              action.position = Vector2(880, 600)
+              action.size = Vector2(130, 65)
+              action.add_theme_font_size_override("font_size", 18)
+              action.modulate = Color(1, 1, 1, 0.8)
+              layer.add_child(action)
+
+          func _joystick_input(event: InputEvent, joystick: Control, knob: Control):
+              if event is InputEventScreenTouch:
+                  if event.pressed:
+                      joystick_active = true
+                      joystick_touch = event.index
+                      _update_joystick(event.position, joystick, knob)
+                  elif event.index == joystick_touch:
+                      joystick_active = false
+                      joystick_touch = -1
+                      joystick_value = Vector2.ZERO
+                      knob.position = Vector2(52, 52)
+
+              elif event is InputEventScreenDrag:
+                  if event.index == joystick_touch:
+                      _update_joystick(event.position, joystick, knob)
+
+          func _update_joystick(pos: Vector2, joystick: Control, knob: Control):
+              var center := Vector2(75, 75)
+              var local_pos := pos - joystick.global_position
+              var offset := local_pos - center
+
+              if offset.length() > 55.0:
+                  offset = offset.normalized() * 55.0
+
+              joystick_value = offset / 55.0
+              knob.position = center + offset - Vector2(23, 23)
+
+          func _jump():
+              if player and is_on_floor():
+                  player.velocity.y = JUMP
 
           func _physics_process(delta):
-
               if player == null:
                   return
 
-              var input := Vector2(
-                  Input.get_action_strength("move_right") -
-                  Input.get_action_strength("move_left"),
-
-                  Input.get_action_strength("move_back") -
-                  Input.get_action_strength("move_forward")
+              var input_vector := Vector2(
+                  Input.get_axis("move_left", "move_right"),
+                  Input.get_axis("move_forward", "move_back")
               )
 
-              var direction := Vector3(
-                  input.x,
-                  0,
-                  input.y
-              )
+              if joystick_value.length() > 0.05:
+                  input_vector = joystick_value
+
+              var direction := Vector3(input_vector.x, 0, input_vector.y)
 
               if direction.length() > 1.0:
                   direction = direction.normalized()
 
-              player.velocity.x = direction.x * 6.0
-              player.velocity.z = direction.z * 6.0
+              player.velocity.x = direction.x * SPEED
+              player.velocity.z = direction.z * SPEED
 
               if not player.is_on_floor():
-
                   player.velocity.y -= 18.0 * delta
-
-              elif Input.is_action_just_pressed("jump"):
-
-                  player.velocity.y = 7.0
+              else:
+                  if Input.is_action_just_pressed("jump"):
+                      player.velocity.y = JUMP
 
               player.move_and_slide()
 
-              camera.look_at(
-                  player.global_position + Vector3(0, 1, 0),
-                  Vector3.UP
+              update_camera(delta)
+
+          func update_camera(delta):
+              if camera == null or player == null:
+                  return
+
+              var target := player.global_position + Vector3(0, 1.4, 0)
+
+              var desired := target + Vector3(
+                  sin(deg_to_rad(yaw)) * 8.0,
+                  4.2,
+                  cos(deg_to_rad(yaw)) * 8.0
               )
+
+              camera.global_position = camera.global_position.lerp(desired, 5.0 * delta)
+              camera.look_at(target, Vector3.UP)
+
+          func _unhandled_input(event):
+              if event is InputEventMouseMotion:
+                  if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+                      yaw -= event.relative.x * 0.25
+                      pitch -= event.relative.y * 0.15
+                      pitch = clamp(pitch, -35.0, 25.0)
           EOF
 
-      - name: Criar export_presets.cfg
-        shell: bash
-        run: |
           cat > export_presets.cfg <<'EOF'
           [preset.0]
 
           name="Android"
           platform="Android"
           runnable=true
-          dedicated_server=false
-          custom_features=""
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-          export_path="build/MundoV1.apk"
+          advanced_options=false
 
           [preset.0.options]
 
@@ -580,132 +600,137 @@ jobs:
           gradle_build/use_gradle_build=false
 
           package/unique_name="com.mundov1.game"
-          package/name="Mundo V1"
-          package/version_code=1
-          package/version_name="1.0"
+          package/name="MUNDO V1"
+          package/signed=true
+          package/app_category=0
+          package/retain_data_on_uninstall=false
+
+          version/code=11
+          version/name="1.1"
 
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
 
-          permissions/internet=false
+          permissions/internet=true
+          permissions/access_network_state=true
+
+          screen/immersive_mode=true
+          screen/orientation=1
+
+          graphics/driver/driver_name="opengl3"
+          graphics/driver/driver_name.mobile="opengl3"
+
+          [preset.0.options.splash]
+
+          image=""
+          bg_color=Color(0.08, 0.12, 0.18, 1)
+          scale=1
+          show_image=true
+          fullsize=false
+          use_filter=true
           EOF
 
-      - name: Verificar configuracao
+          cat > icon.svg <<'EOF'
+          <svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+            <rect width="128" height="128" rx="28" fill="#214f35"/>
+            <circle cx="64" cy="58" r="34" fill="#62a84f"/>
+            <path d="M30 84 Q64 55 98 84" fill="none" stroke="#d8f0c8" stroke-width="8"/>
+            <circle cx="50" cy="54" r="5" fill="#ffffff"/>
+            <circle cx="78" cy="54" r="5" fill="#ffffff"/>
+          </svg>
+          EOF
+
+      - name: Configurar Godot Android
         shell: bash
         run: |
           set -euxo pipefail
 
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$HOME/.config/godot"
 
-          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource format=3]
 
-          echo "================================"
-          echo "VERIFICACAO FINAL"
-          echo "================================"
+          [resource]
 
-          java -version
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          EOF
 
-          test -d "$ANDROID_HOME/platforms/android-34"
-          test -d "$ANDROID_HOME/build-tools/34.0.0"
+          test -f "$HOME/.config/godot/editor_settings-4.tres"
+
+      - name: Criar keystore de debug
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p "$HOME/.android"
+
+          keytool \
+            -genkeypair \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -noprompt || true
 
           test -f "$HOME/.android/debug.keystore"
 
-          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
-          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
-
-          test -f project.godot
-          test -f export_presets.cfg
-          test -f Main.tscn
-          test -f scripts/main.gd
-
-          grep \
-            "textures/vram_compression/import_etc2_astc=true" \
-            project.godot
-
-          grep \
-            'name="Android"' \
-            export_presets.cfg
-
-          grep \
-            'architectures/arm64-v8a=true' \
-            export_presets.cfg
-
-          echo "CONFIGURACAO OK"
-
-      - name: Importar projeto
+      - name: Verificar projeto
         shell: bash
         run: |
           set -euxo pipefail
 
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          test -f project.godot
+          test -f Main.tscn
+          test -f scripts/main.gd
+          test -f export_presets.cfg
 
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          grep -q "gl_compatibility" project.godot
+          grep -q 'name="Android"' export_presets.cfg
+          grep -q 'arm64-v8a=true' export_presets.cfg
 
-          adb start-server
+          echo "Projeto MUNDO V1.1 pronto."
 
-          "$GITHUB_WORKSPACE/Godot" \
+      - name: Exportar APK ARM64
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p build
+
+          godot \
             --headless \
             --path "$GITHUB_WORKSPACE" \
             --editor \
-            --import \
             --quit
 
-      - name: Exportar APK
-        shell: bash
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-        run: |
-          set -euxo pipefail
-
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
-
-          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
-
-          echo "================================"
-          echo "EXPORTANDO MUNDO V1"
-          echo "================================"
-
-          adb start-server
-
-          rm -f \
-            "$GITHUB_WORKSPACE/build/MundoV1.apk"
-
-          "$GITHUB_WORKSPACE/Godot" \
+          godot \
             --headless \
             --path "$GITHUB_WORKSPACE" \
-            --export-debug \
-            "Android" \
-            "$GITHUB_WORKSPACE/build/MundoV1.apk"
+            --export-debug "Android" \
+            build/MundoV1.apk
 
-          echo "================================"
-          echo "APK EXPORTADO"
-          echo "================================"
+          test -f build/MundoV1.apk
+          ls -lh build/MundoV1.apk
 
-      - name: Conferir APK
+      - name: Verificar APK
         shell: bash
         run: |
           set -euxo pipefail
 
-          test -f "$GITHUB_WORKSPACE/build/MundoV1.apk"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose build/MundoV1.apk
 
-          echo "================================"
-          echo "MUNDO V1 APK GERADO"
-          echo "================================"
-
-          ls -lh "$GITHUB_WORKSPACE/build/MundoV1.apk"
-
-          file "$GITHUB_WORKSPACE/build/MundoV1.apk"
+          echo "APK MUNDO V1.1 validado com sucesso."
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: MundoV1-APK
+          name: MundoV1-APK-V1.1
           path: build/MundoV1.apk
           if-no-files-found: error
