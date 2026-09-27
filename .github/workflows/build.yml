@@ -21,7 +21,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Android SDK
+      - name: Instalar Android SDK
         shell: bash
         run: |
           set -euxo pipefail
@@ -37,18 +37,18 @@ jobs:
             "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
             -O cmdline-tools.zip
 
-          rm -rf /tmp/cmdline-tools
+          rm -rf /tmp/android-cmdline-tools
 
-          mkdir -p /tmp/cmdline-tools
+          mkdir -p /tmp/android-cmdline-tools
 
           unzip -q \
             cmdline-tools.zip \
-            -d /tmp/cmdline-tools
+            -d /tmp/android-cmdline-tools
 
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
 
           cp -r \
-            /tmp/cmdline-tools/cmdline-tools/. \
+            /tmp/android-cmdline-tools/cmdline-tools/. \
             "$ANDROID_HOME/cmdline-tools/latest/"
 
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
@@ -58,7 +58,7 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
 
-      - name: Instalar SDK 34
+      - name: Instalar componentes Android
         shell: bash
         run: |
           set -euxo pipefail
@@ -79,10 +79,38 @@ jobs:
 
           test -d "$ANDROID_HOME/platforms/android-34"
           test -d "$ANDROID_HOME/build-tools/34.0.0"
+          test -f "$ANDROID_HOME/platform-tools/adb"
 
-          echo "Android SDK OK"
+          echo "Android SDK instalado."
 
-      - name: Baixar Godot
+      - name: Iniciar ADB
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+
+          echo "Versão do ADB:"
+          adb version
+
+          echo "Iniciando servidor ADB..."
+
+          adb kill-server || true
+
+          adb start-server
+
+          sleep 3
+
+          echo "Verificando servidor ADB..."
+
+          adb devices
+
+          echo "ADB funcionando."
+
+      - name: Baixar Godot 4.3
         shell: bash
         run: |
           set -euxo pipefail
@@ -101,7 +129,11 @@ jobs:
             Godot_v4.3-stable_linux.x86_64 \
             "$GITHUB_WORKSPACE/Godot"
 
-      - name: Templates Godot Android
+          chmod +x "$GITHUB_WORKSPACE/Godot"
+
+          "$GITHUB_WORKSPACE/Godot" --version
+
+      - name: Instalar templates Android do Godot
         shell: bash
         run: |
           set -euxo pipefail
@@ -127,10 +159,12 @@ jobs:
             godot_templates/templates/. \
             "$HOME/.local/share/godot/export_templates/4.3.stable/"
 
+          echo "Templates Android instalados."
+
           ls -la \
             "$HOME/.local/share/godot/export_templates/4.3.stable"
 
-      - name: Configurar Godot
+      - name: Configurar Godot para Android
         shell: bash
         run: |
           set -euxo pipefail
@@ -146,7 +180,10 @@ jobs:
           android/sdk_path = "$HOME/android-sdk"
           EOF
 
-      - name: Criar projeto
+          echo "Configuração Godot:"
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+
+      - name: Preparar projeto
         shell: bash
         run: |
           set -euxo pipefail
@@ -154,11 +191,14 @@ jobs:
           mkdir -p scripts
           mkdir -p build
 
+      - name: Criar project.godot
+        shell: bash
+        run: |
           cat > project.godot <<'EOF'
           [application]
 
           config/name="Mundo V1"
-          config/description="Mundo V1"
+          config/description="Mundo V1 - exploração e construção"
           run/main_scene="res://Main.tscn"
 
           [display]
@@ -203,6 +243,9 @@ jobs:
           }
           EOF
 
+      - name: Criar Main.tscn
+        shell: bash
+        run: |
           cat > Main.tscn <<'EOF'
           [gd_scene load_steps=2 format=3]
 
@@ -212,6 +255,9 @@ jobs:
           script = ExtResource("1")
           EOF
 
+      - name: Criar main.gd
+        shell: bash
+        run: |
           cat > scripts/main.gd <<'EOF'
           extends Node3D
 
@@ -219,41 +265,65 @@ jobs:
           var camera: Camera3D
 
           func _ready():
-              criar_mundo()
-              criar_jogador()
-              criar_interface()
+              create_environment()
+              create_world()
+              create_player()
+              create_interface()
 
-          func material(c: Color):
+          func material(color: Color) -> StandardMaterial3D:
               var m := StandardMaterial3D.new()
-              m.albedo_color = c
+              m.albedo_color = color
               m.roughness = 0.85
               return m
 
-          func criar_mundo():
+          func create_environment():
 
-              var ambiente := WorldEnvironment.new()
-              var env := Environment.new()
+              var world_environment := WorldEnvironment.new()
+              var environment := Environment.new()
 
-              env.background_mode = Environment.BG_COLOR
-              env.background_color = Color(0.38, 0.62, 0.88)
-              env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-              env.ambient_light_color = Color(0.8, 0.85, 1.0)
-              env.ambient_light_energy = 0.8
+              environment.background_mode = Environment.BG_COLOR
+              environment.background_color = Color(0.38, 0.62, 0.88)
 
-              ambiente.environment = env
-              add_child(ambiente)
+              environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+              environment.ambient_light_color = Color(0.8, 0.85, 1.0)
+              environment.ambient_light_energy = 0.8
 
-              var sol := DirectionalLight3D.new()
-              sol.rotation_degrees = Vector3(-50, -30, 0)
-              sol.light_energy = 1.2
-              sol.shadow_enabled = true
+              world_environment.environment = environment
 
-              add_child(sol)
+              add_child(world_environment)
 
-              var terreno := StaticBody3D.new()
-              terreno.position = Vector3(0, -1, 0)
+              var sun := DirectionalLight3D.new()
 
-              add_child(terreno)
+              sun.rotation_degrees = Vector3(-50, -30, 0)
+              sun.light_energy = 1.2
+              sun.shadow_enabled = true
+
+              add_child(sun)
+
+          func create_world():
+
+              create_ground()
+
+              create_water()
+
+              create_tree(Vector3(-12, 0, -8))
+              create_tree(Vector3(10, 0, -15))
+              create_tree(Vector3(20, 0, 5))
+              create_tree(Vector3(-20, 0, 12))
+              create_tree(Vector3(6, 0, 20))
+
+              create_rock(Vector3(5, 0, 5))
+              create_rock(Vector3(-7, 0, 10))
+              create_rock(Vector3(15, 0, 15))
+              create_rock(Vector3(-18, 0, -5))
+
+          func create_ground():
+
+              var ground := StaticBody3D.new()
+
+              ground.position = Vector3(0, -1, 0)
+
+              add_child(ground)
 
               var mesh := MeshInstance3D.new()
               var box := BoxMesh.new()
@@ -261,116 +331,157 @@ jobs:
               box.size = Vector3(80, 2, 80)
 
               mesh.mesh = box
+
               mesh.material_override = material(
                   Color(0.30, 0.60, 0.25)
               )
 
-              terreno.add_child(mesh)
+              ground.add_child(mesh)
 
-              var col := CollisionShape3D.new()
-              var forma := BoxShape3D.new()
+              var collision := CollisionShape3D.new()
+              var shape := BoxShape3D.new()
 
-              forma.size = Vector3(80, 2, 80)
-              col.shape = forma
+              shape.size = Vector3(80, 2, 80)
 
-              terreno.add_child(col)
+              collision.shape = shape
 
-              criar_arvore(Vector3(-12, 0, -8))
-              criar_arvore(Vector3(10, 0, -15))
-              criar_arvore(Vector3(20, 0, 5))
-              criar_arvore(Vector3(-20, 0, 12))
+              ground.add_child(collision)
 
-          func criar_arvore(pos: Vector3):
+          func create_water():
 
-              var tronco := MeshInstance3D.new()
-              var tronco_mesh := CylinderMesh.new()
+              var water := MeshInstance3D.new()
+              var mesh := BoxMesh.new()
 
-              tronco_mesh.top_radius = 0.35
-              tronco_mesh.bottom_radius = 0.45
-              tronco_mesh.height = 3.5
+              mesh.size = Vector3(24, 0.15, 16)
 
-              tronco.mesh = tronco_mesh
-              tronco.position = pos + Vector3(0, 1.75, 0)
-              tronco.material_override = material(
+              water.mesh = mesh
+              water.position = Vector3(18, 0.1, -12)
+
+              water.material_override = material(
+                  Color(0.08, 0.45, 0.78)
+              )
+
+              add_child(water)
+
+          func create_tree(pos: Vector3):
+
+              var trunk := MeshInstance3D.new()
+              var trunk_mesh := CylinderMesh.new()
+
+              trunk_mesh.top_radius = 0.35
+              trunk_mesh.bottom_radius = 0.45
+              trunk_mesh.height = 3.5
+
+              trunk.mesh = trunk_mesh
+
+              trunk.position = pos + Vector3(0, 1.75, 0)
+
+              trunk.material_override = material(
                   Color(0.38, 0.20, 0.08)
               )
 
-              add_child(tronco)
+              add_child(trunk)
 
-              var copa := MeshInstance3D.new()
-              var copa_mesh := SphereMesh.new()
+              var leaves := MeshInstance3D.new()
+              var leaves_mesh := SphereMesh.new()
 
-              copa_mesh.radius = 2.2
-              copa_mesh.height = 4.0
+              leaves_mesh.radius = 2.2
+              leaves_mesh.height = 4.0
 
-              copa.mesh = copa_mesh
-              copa.position = pos + Vector3(0, 4.2, 0)
-              copa.material_override = material(
+              leaves.mesh = leaves_mesh
+
+              leaves.position = pos + Vector3(0, 4.2, 0)
+
+              leaves.material_override = material(
                   Color(0.10, 0.48, 0.18)
               )
 
-              add_child(copa)
+              add_child(leaves)
 
-          func criar_jogador():
+          func create_rock(pos: Vector3):
+
+              var rock := MeshInstance3D.new()
+              var mesh := SphereMesh.new()
+
+              mesh.radius = 1.0
+              mesh.height = 1.6
+
+              rock.mesh = mesh
+              rock.scale = Vector3(1.4, 0.7, 1.1)
+
+              rock.position = pos + Vector3(0, 0.6, 0)
+
+              rock.material_override = material(
+                  Color(0.40, 0.43, 0.45)
+              )
+
+              add_child(rock)
+
+          func create_player():
 
               player = CharacterBody3D.new()
 
+              player.name = "Player"
               player.position = Vector3(0, 2, 8)
 
               add_child(player)
 
-              var corpo := MeshInstance3D.new()
-              var corpo_mesh := CapsuleMesh.new()
+              var body := MeshInstance3D.new()
+              var body_mesh := CapsuleMesh.new()
 
-              corpo_mesh.radius = 0.45
-              corpo_mesh.height = 1.8
+              body_mesh.radius = 0.45
+              body_mesh.height = 1.8
 
-              corpo.mesh = corpo_mesh
-              corpo.position.y = 0.9
-              corpo.material_override = material(
+              body.mesh = body_mesh
+              body.position.y = 0.9
+
+              body.material_override = material(
                   Color(0.15, 0.35, 0.75)
               )
 
-              player.add_child(corpo)
+              player.add_child(body)
 
-              var colisao := CollisionShape3D.new()
-              var forma := CapsuleShape3D.new()
+              var collision := CollisionShape3D.new()
+              var shape := CapsuleShape3D.new()
 
-              forma.radius = 0.45
-              forma.height = 1.8
+              shape.radius = 0.45
+              shape.height = 1.8
 
-              colisao.shape = forma
-              colisao.position.y = 0.9
+              collision.shape = shape
+              collision.position.y = 0.9
 
-              player.add_child(colisao)
+              player.add_child(collision)
 
               camera = Camera3D.new()
+
               camera.position = Vector3(0, 4, 7)
 
               player.add_child(camera)
 
               camera.current = true
 
-          func criar_interface():
+          func create_interface():
 
-              var camada := CanvasLayer.new()
-              add_child(camada)
+              var layer := CanvasLayer.new()
 
-              var titulo := Label.new()
+              add_child(layer)
 
-              titulo.text = "MUNDO V1"
-              titulo.position = Vector2(30, 25)
+              var title := Label.new()
 
-              titulo.add_theme_font_size_override(
+              title.text = "MUNDO V1"
+              title.position = Vector2(30, 25)
+
+              title.add_theme_font_size_override(
                   "font_size",
                   32
               )
 
-              camada.add_child(titulo)
+              layer.add_child(title)
 
               var info := Label.new()
 
               info.text = "Explore o mundo"
+
               info.position = Vector2(32, 68)
 
               info.add_theme_font_size_override(
@@ -378,36 +489,39 @@ jobs:
                   18
               )
 
-              camada.add_child(info)
+              layer.add_child(info)
 
           func _physics_process(delta):
 
               if player == null:
                   return
 
-              var entrada := Vector2(
+              var input := Vector2(
                   Input.get_action_strength("move_right") -
                   Input.get_action_strength("move_left"),
+
                   Input.get_action_strength("move_back") -
                   Input.get_action_strength("move_forward")
               )
 
-              var direcao := Vector3(
-                  entrada.x,
+              var direction := Vector3(
+                  input.x,
                   0,
-                  entrada.y
+                  input.y
               )
 
-              if direcao.length() > 1.0:
-                  direcao = direcao.normalized()
+              if direction.length() > 1.0:
+                  direction = direction.normalized()
 
-              player.velocity.x = direcao.x * 6.0
-              player.velocity.z = direcao.z * 6.0
+              player.velocity.x = direction.x * 6.0
+              player.velocity.z = direction.z * 6.0
 
               if not player.is_on_floor():
+
                   player.velocity.y -= 18.0 * delta
 
               elif Input.is_action_just_pressed("jump"):
+
                   player.velocity.y = 7.0
 
               player.move_and_slide()
@@ -418,7 +532,7 @@ jobs:
               )
           EOF
 
-      - name: Criar assinatura
+      - name: Criar chave de assinatura
         shell: bash
         run: |
           set -euxo pipefail
@@ -437,7 +551,7 @@ jobs:
             -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Criar preset Android
+      - name: Criar export_presets.cfg
         shell: bash
         run: |
           cat > export_presets.cfg <<EOF
@@ -471,10 +585,6 @@ jobs:
           package/keystore/debug_user="androiddebugkey"
           package/keystore/debug_password="android"
 
-          package/keystore/release=""
-          package/keystore/release_user=""
-          package/keystore/release_password=""
-
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
           architectures/x86=false
@@ -483,10 +593,7 @@ jobs:
           permissions/internet=false
           EOF
 
-          echo "=== PRESET ==="
-          cat export_presets.cfg
-
-      - name: Diagnóstico Godot
+      - name: Verificar ADB antes do Godot
         shell: bash
         run: |
           set -euxo pipefail
@@ -494,26 +601,34 @@ jobs:
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
 
-          echo "Godot:"
-          "$GITHUB_WORKSPACE/Godot" --version
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
-          echo "Templates:"
-          find "$HOME/.local/share/godot/export_templates/4.3.stable" \
-            -maxdepth 2 \
-            -type f \
-            -print
+          echo "ADB:"
+          adb version
 
-          echo "SDK:"
-          ls -la "$ANDROID_HOME/platforms/android-34"
-          ls -la "$ANDROID_HOME/build-tools/34.0.0"
+          echo "Dispositivos:"
+          adb devices
 
-      - name: Importar projeto
+          echo "Testando porta 5037:"
+
+          if adb devices >/dev/null 2>&1; then
+            echo "Servidor ADB respondendo."
+          else
+            echo "ADB não respondeu."
+            exit 1
+          fi
+
+      - name: Importar projeto Godot
         shell: bash
         run: |
           set -euxo pipefail
 
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
+
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+
+          adb start-server
 
           "$GITHUB_WORKSPACE/Godot" \
             --headless \
@@ -529,7 +644,9 @@ jobs:
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
 
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+
+          adb start-server
 
           rm -f build/MundoV1.apk
 
@@ -546,6 +663,10 @@ jobs:
           set -euxo pipefail
 
           test -f build/MundoV1.apk
+
+          echo "================================"
+          echo "MUNDO V1 APK GERADO"
+          echo "================================"
 
           ls -lh build/MundoV1.apk
 
