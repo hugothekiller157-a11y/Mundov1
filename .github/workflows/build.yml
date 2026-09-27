@@ -21,6 +21,23 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Configurar variaveis Android
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "JAVA_HOME=$JAVA_HOME"
+
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
+
       - name: Instalar Android SDK
         shell: bash
         run: |
@@ -51,26 +68,11 @@ jobs:
             /tmp/android-cmdline-tools/cmdline-tools/. \
             "$ANDROID_HOME/cmdline-tools/latest/"
 
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
-
-      - name: Instalar componentes Android
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
-
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 
           yes | sdkmanager --licenses >/dev/null || true
 
-          sdkmanager --install \
+          sdkmanager --sdk_root="$ANDROID_HOME" --install \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0"
@@ -81,7 +83,9 @@ jobs:
           test -d "$ANDROID_HOME/build-tools/34.0.0"
           test -f "$ANDROID_HOME/platform-tools/adb"
 
-          echo "Android SDK instalado."
+          echo "================================"
+          echo "ANDROID SDK OK"
+          echo "================================"
 
       - name: Iniciar ADB
         shell: bash
@@ -90,13 +94,7 @@ jobs:
 
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
-
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-
-          echo "Versão do ADB:"
-          adb version
-
-          echo "Iniciando servidor ADB..."
 
           adb kill-server || true
 
@@ -104,11 +102,10 @@ jobs:
 
           sleep 3
 
-          echo "Verificando servidor ADB..."
+          adb version
 
+          echo "Dispositivos:"
           adb devices
-
-          echo "ADB funcionando."
 
       - name: Baixar Godot 4.3
         shell: bash
@@ -138,8 +135,10 @@ jobs:
         run: |
           set -euxo pipefail
 
+          GODOT_VERSION="4.3.stable"
+
           mkdir -p \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
+            "$HOME/.local/share/godot/export_templates/$GODOT_VERSION"
 
           cd /tmp
 
@@ -157,31 +156,40 @@ jobs:
 
           cp -r \
             godot_templates/templates/. \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/"
+            "$HOME/.local/share/godot/export_templates/$GODOT_VERSION/"
 
-          echo "Templates Android instalados."
+          echo "================================"
+          echo "TEMPLATES GODOT"
+          echo "================================"
 
-          ls -la \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          ls -lh \
+            "$HOME/.local/share/godot/export_templates/$GODOT_VERSION"
 
-      - name: Configurar Godot para Android
+      - name: Configurar Editor Settings do Godot
         shell: bash
         run: |
           set -euxo pipefail
 
           mkdir -p "$HOME/.config/godot"
 
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          cat > "$HOME/.config/godot/editor_settings-4.3.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
 
-          android/adb = "$HOME/android-sdk/platform-tools/adb"
-          android/sdk_path = "$HOME/android-sdk"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/shutdown_adb_on_exit = false
           EOF
 
-          echo "Configuração Godot:"
-          cat "$HOME/.config/godot/editor_settings-4.tres"
+          echo "================================"
+          echo "EDITOR SETTINGS GODOT"
+          echo "================================"
+
+          cat "$HOME/.config/godot/editor_settings-4.3.tres"
 
       - name: Preparar projeto
         shell: bash
@@ -198,7 +206,7 @@ jobs:
           [application]
 
           config/name="Mundo V1"
-          config/description="Mundo V1 - exploração e construção"
+          config/description="Mundo V1 - exploracao e construcao"
           run/main_scene="res://Main.tscn"
 
           [display]
@@ -303,7 +311,6 @@ jobs:
           func create_world():
 
               create_ground()
-
               create_water()
 
               create_tree(Vector3(-12, 0, -8))
@@ -331,7 +338,6 @@ jobs:
               box.size = Vector3(80, 2, 80)
 
               mesh.mesh = box
-
               mesh.material_override = material(
                   Color(0.30, 0.60, 0.25)
               )
@@ -373,7 +379,6 @@ jobs:
               trunk_mesh.height = 3.5
 
               trunk.mesh = trunk_mesh
-
               trunk.position = pos + Vector3(0, 1.75, 0)
 
               trunk.material_override = material(
@@ -389,7 +394,6 @@ jobs:
               leaves_mesh.height = 4.0
 
               leaves.mesh = leaves_mesh
-
               leaves.position = pos + Vector3(0, 4.2, 0)
 
               leaves.material_override = material(
@@ -408,7 +412,6 @@ jobs:
 
               rock.mesh = mesh
               rock.scale = Vector3(1.4, 0.7, 1.1)
-
               rock.position = pos + Vector3(0, 0.6, 0)
 
               rock.material_override = material(
@@ -481,7 +484,6 @@ jobs:
               var info := Label.new()
 
               info.text = "Explore o mundo"
-
               info.position = Vector2(32, 68)
 
               info.add_theme_font_size_override(
@@ -532,7 +534,7 @@ jobs:
               )
           EOF
 
-      - name: Criar chave de assinatura
+      - name: Criar chave debug Android
         shell: bash
         run: |
           set -euxo pipefail
@@ -551,10 +553,12 @@ jobs:
             -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
+          test -f "$HOME/.android/debug.keystore"
+
       - name: Criar export_presets.cfg
         shell: bash
         run: |
-          cat > export_presets.cfg <<EOF
+          cat > export_presets.cfg <<'EOF'
           [preset.0]
 
           name="Android"
@@ -593,7 +597,7 @@ jobs:
           permissions/internet=false
           EOF
 
-      - name: Verificar ADB antes do Godot
+      - name: Verificar configuracao Android
         shell: bash
         run: |
           set -euxo pipefail
@@ -601,42 +605,60 @@ jobs:
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
 
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
 
-          echo "ADB:"
-          adb version
+          echo "================================"
+          echo "JAVA"
+          echo "================================"
 
-          echo "Dispositivos:"
-          adb devices
+          java -version
 
-          echo "Testando porta 5037:"
+          echo "JAVA_HOME=$JAVA_HOME"
 
-          if adb devices >/dev/null 2>&1; then
-            echo "Servidor ADB respondendo."
-          else
-            echo "ADB não respondeu."
-            exit 1
-          fi
+          test -x "$JAVA_HOME/bin/java"
 
-      - name: Importar projeto Godot
-        shell: bash
-        run: |
-          set -euxo pipefail
+          echo "================================"
+          echo "ANDROID SDK"
+          echo "================================"
 
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          test -d "$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms/android-34"
+          test -d "$ANDROID_HOME/build-tools/34.0.0"
+          test -x "$ANDROID_HOME/platform-tools/adb"
 
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          echo "================================"
+          echo "ADB"
+          echo "================================"
 
           adb start-server
 
-          "$GITHUB_WORKSPACE/Godot" \
-            --headless \
-            --path "$GITHUB_WORKSPACE" \
-            --editor \
-            --quit
+          adb devices
 
-      - name: Exportar APK
+          echo "================================"
+          echo "KEYSTORE"
+          echo "================================"
+
+          test -f "$HOME/.android/debug.keystore"
+
+          echo "================================"
+          echo "GODOT SETTINGS"
+          echo "================================"
+
+          test -f "$HOME/.config/godot/editor_settings-4.3.tres"
+
+          cat "$HOME/.config/godot/editor_settings-4.3.tres"
+
+          echo "================================"
+          echo "EXPORT PRESET"
+          echo "================================"
+
+          test -f export_presets.cfg
+
+          grep -E \
+            'name="Android"|platform="Android"|package/unique_name|architectures/arm64-v8a' \
+            export_presets.cfg
+
+      - name: Importar projeto Godot
         shell: bash
         run: |
           set -euxo pipefail
@@ -648,7 +670,61 @@ jobs:
 
           adb start-server
 
-          rm -f build/MundoV1.apk
+          "$GITHUB_WORKSPACE/Godot" \
+            --headless \
+            --path "$GITHUB_WORKSPACE" \
+            --editor \
+            --import \
+            --quit
+
+      - name: Diagnostico Godot Android
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+
+          adb start-server
+
+          echo "================================"
+          echo "GODOT EXPORT PRESETS"
+          echo "================================"
+
+          "$GITHUB_WORKSPACE/Godot" \
+            --headless \
+            --path "$GITHUB_WORKSPACE" \
+            --editor \
+            --quit \
+            --verbose || true
+
+      - name: Exportar APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+
+          echo "Iniciando ADB..."
+
+          adb start-server
+
+          sleep 2
+
+          echo "ADB:"
+          adb devices
+
+          echo "Removendo APK anterior..."
+
+          rm -f \
+            "$GITHUB_WORKSPACE/build/MundoV1.apk"
+
+          echo "Exportando APK..."
 
           "$GITHUB_WORKSPACE/Godot" \
             --headless \
@@ -657,20 +733,24 @@ jobs:
             "Android" \
             "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
+          echo "Exportacao terminou."
+
       - name: Conferir APK
         shell: bash
         run: |
           set -euxo pipefail
 
-          test -f build/MundoV1.apk
+          test -f "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
           echo "================================"
           echo "MUNDO V1 APK GERADO"
           echo "================================"
 
-          ls -lh build/MundoV1.apk
+          ls -lh \
+            "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
-          file build/MundoV1.apk
+          file \
+            "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
