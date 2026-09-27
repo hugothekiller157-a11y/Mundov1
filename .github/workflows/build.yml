@@ -1,0 +1,518 @@
+name: Mundo V1 - APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      # ============================================================
+      # 1. BAIXAR O REPOSITÓRIO
+      # ============================================================
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. INSTALAR DEPENDÊNCIAS
+      # ============================================================
+      - name: Instalar dependências
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            wget \
+            unzip \
+            openjdk-17-jdk
+
+      # ============================================================
+      # 3. BAIXAR GODOT
+      # ============================================================
+      - name: Baixar Godot 4.3
+        run: |
+          set -euxo pipefail
+
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+
+          unzip -q Godot_v4.3-stable_linux.x86_64.zip
+
+          chmod +x Godot_v4.3-stable_linux.x86_64
+
+      # ============================================================
+      # 4. BAIXAR TEMPLATES DE EXPORTAÇÃO
+      # ============================================================
+      - name: Instalar templates Godot
+        run: |
+          set -euxo pipefail
+
+          mkdir -p \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
+
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
+            -O templates.tpz
+
+          mkdir -p /tmp/godot_templates
+
+          unzip -q templates.tpz \
+            -d /tmp/godot_templates
+
+          cp -r \
+            /tmp/godot_templates/templates/* \
+            "$HOME/.local/share/godot/export_templates/4.3.stable/"
+
+      # ============================================================
+      # 5. CRIAR ESTRUTURA DO PROJETO
+      # ============================================================
+      - name: Criar projeto Mundo V1
+        run: |
+          set -euxo pipefail
+
+          mkdir -p scripts
+          mkdir -p build
+
+      # ============================================================
+      # 6. CRIAR project.godot
+      # ============================================================
+      - name: Criar project.godot
+        run: |
+          cat > project.godot <<'EOF'
+          [application]
+
+          config/name="Mundo V1"
+          config/description="Mundo V1 - jogo de exploração e construção"
+          run/main_scene="res://Main.tscn"
+
+          [display]
+
+          window/size/viewport_width=1280
+          window/size/viewport_height=720
+          window/size/window_width_override=1280
+          window/size/window_height_override=720
+          window/stretch/mode="canvas_items"
+
+          [rendering]
+
+          renderer/rendering_method="gl_compatibility"
+          renderer/rendering_method.mobile="gl_compatibility"
+
+          environment/defaults/default_clear_color=Color(0.38, 0.62, 0.88, 1)
+
+          [input]
+
+          move_forward={
+          "deadzone": 0.5,
+          "events": [Object(InputEventKey,"physical_keycode":87)]
+          }
+
+          move_back={
+          "deadzone": 0.5,
+          "events": [Object(InputEventKey,"physical_keycode":83)]
+          }
+
+          move_left={
+          "deadzone": 0.5,
+          "events": [Object(InputEventKey,"physical_keycode":65)]
+          }
+
+          move_right={
+          "deadzone": 0.5,
+          "events": [Object(InputEventKey,"physical_keycode":68)]
+          }
+
+          jump={
+          "deadzone": 0.5,
+          "events": [Object(InputEventKey,"physical_keycode":32)]
+          }
+          EOF
+
+      # ============================================================
+      # 7. CRIAR CENA PRINCIPAL
+      # ============================================================
+      - name: Criar Main.tscn
+        run: |
+          cat > Main.tscn <<'EOF'
+          [gd_scene load_steps=2 format=3]
+
+          [ext_resource path="res://scripts/main.gd" type="Script" id="1"]
+
+          [node name="MundoV1" type="Node3D"]
+          script = ExtResource("1")
+          EOF
+
+      # ============================================================
+      # 8. CRIAR SCRIPT PRINCIPAL DO JOGO
+      # ============================================================
+      - name: Criar main.gd
+        run: |
+          cat > scripts/main.gd <<'EOF'
+          extends Node3D
+
+          var player: CharacterBody3D
+          var camera: Camera3D
+
+          var speed := 6.0
+          var gravity := 18.0
+          var jump_force := 7.0
+
+          func _ready():
+              create_environment()
+              create_world()
+              create_player()
+              create_interface()
+
+          func create_environment():
+              var world_environment := WorldEnvironment.new()
+              var environment := Environment.new()
+
+              environment.background_mode = Environment.BG_COLOR
+              environment.background_color = Color(0.38, 0.62, 0.88)
+
+              environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+              environment.ambient_light_color = Color(0.8, 0.85, 1.0)
+              environment.ambient_light_energy = 0.8
+
+              world_environment.environment = environment
+
+              add_child(world_environment)
+
+              var sun := DirectionalLight3D.new()
+
+              sun.rotation_degrees = Vector3(-50, -30, 0)
+              sun.light_energy = 1.2
+              sun.shadow_enabled = true
+
+              add_child(sun)
+
+          func create_material(color: Color) -> StandardMaterial3D:
+              var material := StandardMaterial3D.new()
+
+              material.albedo_color = color
+              material.roughness = 0.85
+
+              return material
+
+          func create_world():
+              create_ground()
+
+              create_tree(Vector3(-12, 0, -8))
+              create_tree(Vector3(10, 0, -15))
+              create_tree(Vector3(20, 0, 5))
+              create_tree(Vector3(-20, 0, 12))
+              create_tree(Vector3(6, 0, 20))
+
+              create_rock(Vector3(5, 0, 5))
+              create_rock(Vector3(-7, 0, 10))
+              create_rock(Vector3(15, 0, 15))
+              create_rock(Vector3(-18, 0, -5))
+
+              create_water()
+
+          func create_ground():
+              var ground := StaticBody3D.new()
+
+              ground.position = Vector3(0, -1, 0)
+
+              add_child(ground)
+
+              var mesh := MeshInstance3D.new()
+              var box := BoxMesh.new()
+
+              box.size = Vector3(80, 2, 80)
+
+              mesh.mesh = box
+              mesh.material_override = create_material(
+                  Color(0.30, 0.60, 0.25)
+              )
+
+              ground.add_child(mesh)
+
+              var collision := CollisionShape3D.new()
+              var shape := BoxShape3D.new()
+
+              shape.size = Vector3(80, 2, 80)
+
+              collision.shape = shape
+
+              ground.add_child(collision)
+
+          func create_tree(position: Vector3):
+              var trunk := MeshInstance3D.new()
+              var trunk_mesh := CylinderMesh.new()
+
+              trunk_mesh.top_radius = 0.35
+              trunk_mesh.bottom_radius = 0.45
+              trunk_mesh.height = 3.5
+
+              trunk.mesh = trunk_mesh
+              trunk.position = position + Vector3(0, 1.75, 0)
+
+              trunk.material_override = create_material(
+                  Color(0.38, 0.20, 0.08)
+              )
+
+              add_child(trunk)
+
+              var leaves := MeshInstance3D.new()
+              var leaves_mesh := SphereMesh.new()
+
+              leaves_mesh.radius = 2.2
+              leaves_mesh.height = 4.0
+
+              leaves.mesh = leaves_mesh
+              leaves.position = position + Vector3(0, 4.2, 0)
+
+              leaves.material_override = create_material(
+                  Color(0.10, 0.48, 0.18)
+              )
+
+              add_child(leaves)
+
+          func create_rock(position: Vector3):
+              var rock := MeshInstance3D.new()
+              var rock_mesh := SphereMesh.new()
+
+              rock_mesh.radius = 1.0
+              rock_mesh.height = 1.6
+
+              rock.mesh = rock_mesh
+
+              rock.scale = Vector3(1.4, 0.7, 1.1)
+              rock.position = position + Vector3(0, 0.6, 0)
+
+              rock.material_override = create_material(
+                  Color(0.40, 0.43, 0.45)
+              )
+
+              add_child(rock)
+
+          func create_water():
+              var water := MeshInstance3D.new()
+              var water_mesh := BoxMesh.new()
+
+              water_mesh.size = Vector3(24, 0.15, 16)
+
+              water.mesh = water_mesh
+              water.position = Vector3(18, 0.1, -12)
+
+              water.material_override = create_material(
+                  Color(0.08, 0.45, 0.78)
+              )
+
+              add_child(water)
+
+          func create_player():
+              player = CharacterBody3D.new()
+
+              player.name = "Player"
+              player.position = Vector3(0, 2, 8)
+
+              player.add_to_group("player")
+
+              add_child(player)
+
+              var body := MeshInstance3D.new()
+              var body_mesh := CapsuleMesh.new()
+
+              body_mesh.radius = 0.45
+              body_mesh.height = 1.8
+
+              body.mesh = body_mesh
+              body.position.y = 0.9
+
+              body.material_override = create_material(
+                  Color(0.15, 0.35, 0.75)
+              )
+
+              player.add_child(body)
+
+              var collision := CollisionShape3D.new()
+              var collision_shape := CapsuleShape3D.new()
+
+              collision_shape.radius = 0.45
+              collision_shape.height = 1.8
+
+              collision.shape = collision_shape
+              collision.position.y = 0.9
+
+              player.add_child(collision)
+
+              camera = Camera3D.new()
+
+              camera.position = Vector3(0, 4, 7)
+
+              player.add_child(camera)
+
+              camera.current = true
+
+          func create_interface():
+              var layer := CanvasLayer.new()
+
+              add_child(layer)
+
+              var title := Label.new()
+
+              title.text = "MUNDO V1"
+              title.position = Vector2(30, 25)
+
+              title.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
+
+              layer.add_child(title)
+
+              var info := Label.new()
+
+              info.text = "Explore o mundo"
+
+              info.position = Vector2(32, 68)
+
+              info.add_theme_font_size_override(
+                  "font_size",
+                  18
+              )
+
+              layer.add_child(info)
+
+              var crosshair := Label.new()
+
+              crosshair.text = "+"
+              crosshair.position = Vector2(635, 340)
+
+              crosshair.add_theme_font_size_override(
+                  "font_size",
+                  28
+              )
+
+              layer.add_child(crosshair)
+
+          func _physics_process(delta):
+              if player == null:
+                  return
+
+              var input := Vector2(
+                  Input.get_action_strength("move_right") -
+                  Input.get_action_strength("move_left"),
+
+                  Input.get_action_strength("move_back") -
+                  Input.get_action_strength("move_forward")
+              )
+
+              var direction := Vector3(
+                  input.x,
+                  0,
+                  input.y
+              )
+
+              if direction.length() > 1.0:
+                  direction = direction.normalized()
+
+              player.velocity.x = direction.x * speed
+              player.velocity.z = direction.z * speed
+
+              if not player.is_on_floor():
+                  player.velocity.y -= gravity * delta
+              elif Input.is_action_just_pressed("jump"):
+                  player.velocity.y = jump_force
+
+              player.move_and_slide()
+
+              camera.look_at(
+                  player.global_position + Vector3(0, 1, 0),
+                  Vector3.UP
+              )
+          EOF
+
+      # ============================================================
+      # 9. CRIAR EXPORT PRESET ANDROID
+      # ============================================================
+      - name: Configurar exportação Android
+        run: |
+          cat > export_presets.cfg <<'EOF'
+          [preset.0]
+
+          name="Android"
+          platform="Android"
+          runnable=true
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/MundoV1.apk"
+
+          [preset.0.options]
+
+          package/unique_name="com.mundov1.game"
+          package/name="Mundo V1"
+          package/version_code=1
+          package/version_name="1.0"
+
+          package/signed=true
+
+          architectures/armeabi-v7a=false
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=false
+
+          permissions/internet=false
+          EOF
+
+      # ============================================================
+      # 10. VERIFICAR PROJETO
+      # ============================================================
+      - name: Verificar projeto Godot
+        run: |
+          set -euxo pipefail
+
+          ./Godot_v4.3-stable_linux.x86_64 \
+            --headless \
+            --path . \
+            --editor \
+            --quit
+
+      # ============================================================
+      # 11. GERAR APK
+      # ============================================================
+      - name: Gerar APK Android ARM64
+        run: |
+          set -euxo pipefail
+
+          ./Godot_v4.3-stable_linux.x86_64 \
+            --headless \
+            --path . \
+            --export-release \
+            "Android" \
+            build/MundoV1.apk
+
+      # ============================================================
+      # 12. CONFERIR APK
+      # ============================================================
+      - name: Conferir APK
+        run: |
+          set -euxo pipefail
+
+          test -f build/MundoV1.apk
+
+          ls -lh build/MundoV1.apk
+
+          file build/MundoV1.apk
+
+      # ============================================================
+      # 13. PUBLICAR APK
+      # ============================================================
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MundoV1-APK
+          path: build/MundoV1.apk
+          if-no-files-found: error
