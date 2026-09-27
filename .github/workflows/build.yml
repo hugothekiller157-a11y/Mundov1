@@ -21,7 +21,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Configurar variaveis
+      - name: Configurar variaveis Android
         shell: bash
         run: |
           set -euxo pipefail
@@ -87,17 +87,14 @@ jobs:
 
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$HOME/android-sdk"
-
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
           adb kill-server || true
-
           adb start-server
 
           sleep 3
 
           adb version
-
           adb devices
 
       - name: Baixar Godot 4.3
@@ -128,8 +125,9 @@ jobs:
         run: |
           set -euxo pipefail
 
-          mkdir -p \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.3.stable"
+
+          mkdir -p "$TEMPLATE_DIR"
 
           cd /tmp
 
@@ -147,12 +145,14 @@ jobs:
 
           cp -r \
             godot_templates/templates/. \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/"
+            "$TEMPLATE_DIR/"
 
           echo "Templates instalados:"
 
-          ls -lh \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          ls -lh "$TEMPLATE_DIR"
+
+          test -f "$TEMPLATE_DIR/android_debug.apk"
+          test -f "$TEMPLATE_DIR/android_release.apk"
 
       - name: Criar chave Android
         shell: bash
@@ -179,14 +179,12 @@ jobs:
 
           echo "Keystore OK"
 
-      - name: Configurar Godot Android
+      - name: Configurar Godot
         shell: bash
         run: |
           set -euxo pipefail
 
           mkdir -p "$HOME/.config/godot"
-
-          rm -f "$HOME/.config/godot/editor_settings-4.3.tres"
 
           cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
@@ -195,24 +193,13 @@ jobs:
 
           export/android/java_sdk_path = "$JAVA_HOME"
           export/android/android_sdk_path = "$ANDROID_HOME"
-          export/android/debug_keystore = "$HOME/.android/debug.keystore"
-          export/android/debug_keystore_user = "androiddebugkey"
-          export/android/debug_keystore_pass = "android"
           EOF
 
-          echo "================================"
-          echo "EDITOR SETTINGS CORRETO"
-          echo "================================"
+          echo "Configuracao Godot:"
 
           cat "$HOME/.config/godot/editor_settings-4.tres"
 
-          echo "================================"
-          echo "VERIFICANDO ARQUIVO"
-          echo "================================"
-
-          test -f "$HOME/.config/godot/editor_settings-4.tres"
-
-      - name: Criar projeto
+      - name: Preparar projeto
         shell: bash
         run: |
           set -euxo pipefail
@@ -241,6 +228,8 @@ jobs:
 
           renderer/rendering_method="gl_compatibility"
           renderer/rendering_method.mobile="gl_compatibility"
+
+          textures/vram_compression/import_etc2_astc=true
 
           environment/defaults/default_clear_color=Color(0.38, 0.62, 0.88, 1)
 
@@ -271,6 +260,14 @@ jobs:
           "events": [Object(InputEventKey,"physical_keycode":32)]
           }
           EOF
+
+          echo "================================"
+          echo "ETC2/ASTC ATIVADO"
+          echo "================================"
+
+          grep \
+            "textures/vram_compression/import_etc2_astc=true" \
+            project.godot
 
       - name: Criar Main.tscn
         shell: bash
@@ -595,7 +592,7 @@ jobs:
           permissions/internet=false
           EOF
 
-      - name: Verificar ambiente
+      - name: Verificar configuracao
         shell: bash
         run: |
           set -euxo pipefail
@@ -606,52 +603,37 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
 
           echo "================================"
-          echo "JAVA"
+          echo "VERIFICACAO FINAL"
           echo "================================"
 
           java -version
 
-          echo "JAVA_HOME=$JAVA_HOME"
-
-          echo "================================"
-          echo "ANDROID"
-          echo "================================"
-
-          test -d "$ANDROID_HOME"
           test -d "$ANDROID_HOME/platforms/android-34"
           test -d "$ANDROID_HOME/build-tools/34.0.0"
 
-          adb start-server
-          adb devices
+          test -f "$HOME/.android/debug.keystore"
 
-          echo "================================"
-          echo "GODOT SETTINGS"
-          echo "================================"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
 
-          test -f "$HOME/.config/godot/editor_settings-4.tres"
-
-          cat "$HOME/.config/godot/editor_settings-4.tres"
-
-          echo "================================"
-          echo "TEMPLATES"
-          echo "================================"
-
-          test -f \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
-
-          test -f \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
-
-          echo "Templates OK"
-
-          echo "================================"
-          echo "EXPORT PRESET"
-          echo "================================"
+          test -f project.godot
+          test -f export_presets.cfg
+          test -f Main.tscn
+          test -f scripts/main.gd
 
           grep \
-            -E \
-            'name="Android"|platform="Android"|package/unique_name|architectures/arm64-v8a' \
+            "textures/vram_compression/import_etc2_astc=true" \
+            project.godot
+
+          grep \
+            'name="Android"' \
             export_presets.cfg
+
+          grep \
+            'architectures/arm64-v8a=true' \
+            export_presets.cfg
+
+          echo "CONFIGURACAO OK"
 
       - name: Importar projeto
         shell: bash
@@ -687,18 +669,10 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
 
           echo "================================"
-          echo "INICIANDO ADB"
+          echo "EXPORTANDO MUNDO V1"
           echo "================================"
 
           adb start-server
-
-          sleep 2
-
-          adb devices
-
-          echo "================================"
-          echo "EXPORTANDO MUNDO V1"
-          echo "================================"
 
           rm -f \
             "$GITHUB_WORKSPACE/build/MundoV1.apk"
@@ -711,7 +685,7 @@ jobs:
             "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
           echo "================================"
-          echo "EXPORTACAO FINALIZADA"
+          echo "APK EXPORTADO"
           echo "================================"
 
       - name: Conferir APK
@@ -719,18 +693,15 @@ jobs:
         run: |
           set -euxo pipefail
 
-          test -f \
-            "$GITHUB_WORKSPACE/build/MundoV1.apk"
+          test -f "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
           echo "================================"
           echo "MUNDO V1 APK GERADO"
           echo "================================"
 
-          ls -lh \
-            "$GITHUB_WORKSPACE/build/MundoV1.apk"
+          ls -lh "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
-          file \
-            "$GITHUB_WORKSPACE/build/MundoV1.apk"
+          file "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
