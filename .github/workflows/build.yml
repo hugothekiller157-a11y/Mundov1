@@ -11,44 +11,135 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout
+
+      # ============================================================
+      # 1 - CHECKOUT
+      # ============================================================
+      - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Instalar dependências
+      # ============================================================
+      # 2 - JAVA
+      # ============================================================
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # ============================================================
+      # 3 - ANDROID SDK
+      # ============================================================
+      - name: Instalar Android SDK
         run: |
           set -euxo pipefail
 
-          sudo apt-get update
-          sudo apt-get install -y wget unzip openjdk-17-jdk
+          mkdir -p "$HOME/android-sdk/cmdline-tools"
 
-      - name: Baixar Godot
-        run: |
-          set -euxo pipefail
+          cd /tmp
 
           wget -q \
-            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O android-cmdline-tools.zip
 
-          unzip -q Godot_v4.3-stable_linux.x86_64.zip
-          chmod +x Godot_v4.3-stable_linux.x86_64
+          unzip -q android-cmdline-tools.zip \
+            -d "$HOME/android-sdk/cmdline-tools"
 
-      - name: Instalar templates Android
+          mv \
+            "$HOME/android-sdk/cmdline-tools/cmdline-tools" \
+            "$HOME/android-sdk/cmdline-tools/latest"
+
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "$HOME/android-sdk/build-tools/35.0.0" >> "$GITHUB_PATH"
+
+      # ============================================================
+      # 4 - ANDROID COMPONENTES
+      # ============================================================
+      - name: Instalar componentes Android
+        shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          yes | sdkmanager --licenses >/dev/null || true
+
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+          yes | sdkmanager --licenses >/dev/null || true
+
+          adb version
+          sdkmanager --list | head -40
+
+      # ============================================================
+      # 5 - INICIAR ADB
+      # ============================================================
+      - name: Inicializar ADB
+        run: |
+          set -euxo pipefail
+
+          adb start-server
+
+          adb version
+
+      # ============================================================
+      # 6 - BAIXAR GODOT
+      # ============================================================
+      - name: Baixar Godot 4.3
+        run: |
+          set -euxo pipefail
+
+          cd /tmp
+
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
+            -O godot.zip
+
+          unzip -q godot.zip
+
+          chmod +x Godot_v4.3-stable_linux.x86_64
+
+          cp \
+            Godot_v4.3-stable_linux.x86_64 \
+            "$GITHUB_WORKSPACE/Godot"
+
+      # ============================================================
+      # 7 - TEMPLATES GODOT
+      # ============================================================
+      - name: Instalar templates Android do Godot
+        run: |
+          set -euxo pipefail
+
+          mkdir -p \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
+
+          cd /tmp
 
           wget -q \
             https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
             -O templates.tpz
 
-          mkdir -p /tmp/godot_templates
+          mkdir -p godot_templates
 
-          unzip -q templates.tpz -d /tmp/godot_templates
+          unzip -q \
+            templates.tpz \
+            -d godot_templates
 
           cp -r \
-            /tmp/godot_templates/templates/* \
+            godot_templates/templates/* \
             "$HOME/.local/share/godot/export_templates/4.3.stable/"
 
+          ls -la \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
+
+      # ============================================================
+      # 8 - PREPARAR PASTAS
+      # ============================================================
       - name: Preparar projeto
         run: |
           set -euxo pipefail
@@ -56,13 +147,37 @@ jobs:
           mkdir -p scripts
           mkdir -p build
 
+      # ============================================================
+      # 9 - CONFIGURAR GODOT
+      # ============================================================
+      - name: Configurar caminhos Android para Godot
+        run: |
+          set -euxo pipefail
+
+          mkdir -p "$HOME/.config/godot"
+
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+
+          filesystem/file_dialog/thumbnail_size = 64
+          filesystem/file_dialog/show_hidden_files = false
+          run/window_placement/play_windowed = true
+          android/adb = "$HOME/android-sdk/platform-tools/adb"
+          android/sdk_path = "$HOME/android-sdk"
+          EOF
+
+      # ============================================================
+      # 10 - CRIAR project.godot
+      # ============================================================
       - name: Criar project.godot
         run: |
           cat > project.godot <<'EOF'
           [application]
 
           config/name="Mundo V1"
-          config/description="Mundo V1"
+          config/description="Mundo V1 - exploração e construção"
           run/main_scene="res://Main.tscn"
 
           [display]
@@ -71,6 +186,7 @@ jobs:
           window/size/viewport_height=720
           window/size/window_width_override=1280
           window/size/window_height_override=720
+          window/stretch/mode="canvas_items"
 
           [rendering]
 
@@ -107,6 +223,9 @@ jobs:
           }
           EOF
 
+      # ============================================================
+      # 11 - CENA PRINCIPAL
+      # ============================================================
       - name: Criar Main.tscn
         run: |
           cat > Main.tscn <<'EOF'
@@ -118,6 +237,9 @@ jobs:
           script = ExtResource("1")
           EOF
 
+      # ============================================================
+      # 12 - SCRIPT DO JOGO
+      # ============================================================
       - name: Criar main.gd
         run: |
           cat > scripts/main.gd <<'EOF'
@@ -151,6 +273,7 @@ jobs:
               add_child(world_environment)
 
               var sun := DirectionalLight3D.new()
+
               sun.rotation_degrees = Vector3(-50, -30, 0)
               sun.light_energy = 1.2
               sun.shadow_enabled = true
@@ -159,8 +282,10 @@ jobs:
 
           func material(color: Color) -> StandardMaterial3D:
               var m := StandardMaterial3D.new()
+
               m.albedo_color = color
               m.roughness = 0.85
+
               return m
 
           func create_world():
@@ -180,15 +305,20 @@ jobs:
 
           func create_ground():
               var ground := StaticBody3D.new()
+
               ground.position = Vector3(0, -1, 0)
+
               add_child(ground)
 
               var mesh := MeshInstance3D.new()
               var box := BoxMesh.new()
 
               box.size = Vector3(80, 2, 80)
+
               mesh.mesh = box
-              mesh.material_override = material(Color(0.30, 0.60, 0.25))
+              mesh.material_override = material(
+                  Color(0.30, 0.60, 0.25)
+              )
 
               ground.add_child(mesh)
 
@@ -205,9 +335,13 @@ jobs:
               var mesh := BoxMesh.new()
 
               mesh.size = Vector3(24, 0.15, 16)
+
               water.mesh = mesh
               water.position = Vector3(18, 0.1, -12)
-              water.material_override = material(Color(0.08, 0.45, 0.78))
+
+              water.material_override = material(
+                  Color(0.08, 0.45, 0.78)
+              )
 
               add_child(water)
 
@@ -221,7 +355,10 @@ jobs:
 
               trunk.mesh = trunk_mesh
               trunk.position = pos + Vector3(0, 1.75, 0)
-              trunk.material_override = material(Color(0.38, 0.20, 0.08))
+
+              trunk.material_override = material(
+                  Color(0.38, 0.20, 0.08)
+              )
 
               add_child(trunk)
 
@@ -233,7 +370,10 @@ jobs:
 
               leaves.mesh = leaves_mesh
               leaves.position = pos + Vector3(0, 4.2, 0)
-              leaves.material_override = material(Color(0.10, 0.48, 0.18))
+
+              leaves.material_override = material(
+                  Color(0.10, 0.48, 0.18)
+              )
 
               add_child(leaves)
 
@@ -247,14 +387,19 @@ jobs:
               rock.mesh = mesh
               rock.scale = Vector3(1.4, 0.7, 1.1)
               rock.position = pos + Vector3(0, 0.6, 0)
-              rock.material_override = material(Color(0.40, 0.43, 0.45))
+
+              rock.material_override = material(
+                  Color(0.40, 0.43, 0.45)
+              )
 
               add_child(rock)
 
           func create_player():
               player = CharacterBody3D.new()
+
               player.name = "Player"
               player.position = Vector3(0, 2, 8)
+
               player.add_to_group("player")
 
               add_child(player)
@@ -267,7 +412,10 @@ jobs:
 
               body.mesh = body_mesh
               body.position.y = 0.9
-              body.material_override = material(Color(0.15, 0.35, 0.75))
+
+              body.material_override = material(
+                  Color(0.15, 0.35, 0.75)
+              )
 
               player.add_child(body)
 
@@ -283,26 +431,39 @@ jobs:
               player.add_child(collision)
 
               camera = Camera3D.new()
+
               camera.position = Vector3(0, 4, 7)
+
               player.add_child(camera)
 
               camera.current = true
 
           func create_interface():
               var layer := CanvasLayer.new()
+
               add_child(layer)
 
               var title := Label.new()
+
               title.text = "MUNDO V1"
               title.position = Vector2(30, 25)
-              title.add_theme_font_size_override("font_size", 32)
+
+              title.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
 
               layer.add_child(title)
 
               var info := Label.new()
+
               info.text = "Explore o mundo"
               info.position = Vector2(32, 68)
-              info.add_theme_font_size_override("font_size", 18)
+
+              info.add_theme_font_size_override(
+                  "font_size",
+                  18
+              )
 
               layer.add_child(info)
 
@@ -313,11 +474,16 @@ jobs:
               var input := Vector2(
                   Input.get_action_strength("move_right") -
                   Input.get_action_strength("move_left"),
+
                   Input.get_action_strength("move_back") -
                   Input.get_action_strength("move_forward")
               )
 
-              var direction := Vector3(input.x, 0, input.y)
+              var direction := Vector3(
+                  input.x,
+                  0,
+                  input.y
+              )
 
               if direction.length() > 1.0:
                   direction = direction.normalized()
@@ -327,6 +493,7 @@ jobs:
 
               if not player.is_on_floor():
                   player.velocity.y -= gravity * delta
+
               elif Input.is_action_just_pressed("jump"):
                   player.velocity.y = jump_force
 
@@ -338,9 +505,33 @@ jobs:
               )
           EOF
 
+      # ============================================================
+      # 13 - GERAR CHAVE DE TESTE
+      # ============================================================
+      - name: Criar chave de assinatura Android
+        run: |
+          set -euxo pipefail
+
+          mkdir -p "$HOME/.android"
+
+          keytool \
+            -genkeypair \
+            -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      # ============================================================
+      # 14 - CONFIGURAR EXPORTAÇÃO
+      # ============================================================
       - name: Criar export_presets.cfg
         run: |
-          cat > export_presets.cfg <<'EOF'
+          cat > export_presets.cfg <<EOF
           [preset.0]
 
           name="Android"
@@ -360,6 +551,12 @@ jobs:
           package/version_code=1
           package/version_name="1.0"
 
+          package/signed=true
+
+          package/keystore/debug="$HOME/.android/debug.keystore"
+          package/keystore/debug_user="androiddebugkey"
+          package/keystore/debug_password="android"
+
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
           architectures/x86=false
@@ -368,48 +565,66 @@ jobs:
           permissions/internet=false
           EOF
 
-      - name: Criar configuração Android
+      # ============================================================
+      # 15 - VERIFICAR AMBIENTE
+      # ============================================================
+      - name: Verificar Android e Godot
         run: |
           set -euxo pipefail
 
-          mkdir -p android
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
-          cat > android/configure.sh <<'EOF'
-          #!/bin/bash
-          exit 0
-          EOF
+          java -version
 
-          chmod +x android/configure.sh
+          adb version
 
-      - name: Verificar projeto
+          "$GITHUB_WORKSPACE/Godot" \
+            --version
+
+      # ============================================================
+      # 16 - IMPORTAR PROJETO
+      # ============================================================
+      - name: Importar projeto Godot
         run: |
           set -euxo pipefail
 
-          ./Godot_v4.3-stable_linux.x86_64 \
+          "$GITHUB_WORKSPACE/Godot" \
             --headless \
-            --path . \
+            --path "$GITHUB_WORKSPACE" \
             --editor \
             --quit
 
-      - name: Exportar APK
+      # ============================================================
+      # 17 - EXPORTAR APK
+      # ============================================================
+      - name: Gerar APK Mundo V1
         run: |
           set -euxo pipefail
 
-          ./Godot_v4.3-stable_linux.x86_64 \
+          "$GITHUB_WORKSPACE/Godot" \
             --headless \
-            --path . \
-            --export-release \
+            --path "$GITHUB_WORKSPACE" \
+            --export-debug \
             "Android" \
-            build/MundoV1.apk
+            "$GITHUB_WORKSPACE/build/MundoV1.apk"
 
+      # ============================================================
+      # 18 - CONFERIR APK
+      # ============================================================
       - name: Conferir APK
         run: |
           set -euxo pipefail
 
           test -f build/MundoV1.apk
+
           ls -lh build/MundoV1.apk
+
           file build/MundoV1.apk
 
+      # ============================================================
+      # 19 - PUBLICAR APK
+      # ============================================================
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
