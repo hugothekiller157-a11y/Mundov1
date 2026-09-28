@@ -214,10 +214,10 @@ jobs:
           var sun: DirectionalLight3D
           var env: WorldEnvironment
 
-          var move_input := Vector2.ZERO
-          var water_time := 0.0
-          var camera_distance := 8.2
-          var camera_height := 4.4
+          var move_input: Vector2 = Vector2.ZERO
+          var water_time: float = 0.0
+          var camera_distance: float = 8.2
+          var camera_height: float = 4.4
 
           func _ready():
               setup_environment()
@@ -279,6 +279,7 @@ jobs:
               fill.light_color = Color("#b9dcff")
               fill.light_energy = 0.22
               fill.shadow_enabled = false
+
               add_child(fill)
 
           func create_world():
@@ -289,7 +290,11 @@ jobs:
               create_vegetation()
               create_rocks()
 
-          func make_material(color: Color, roughness := 0.9, metallic := 0.0) -> StandardMaterial3D:
+          func make_material(
+              color: Color,
+              roughness: float = 0.9,
+              metallic: float = 0.0
+          ) -> StandardMaterial3D:
               var material := StandardMaterial3D.new()
               material.albedo_color = color
               material.roughness = roughness
@@ -307,7 +312,10 @@ jobs:
 
               ground.mesh = mesh
               ground.position.y = -0.05
-              ground.material_override = make_material(Color("#62994b"), 1.0)
+              ground.material_override = make_material(
+                  Color("#62994b"),
+                  1.0
+              )
 
               add_child(ground)
 
@@ -316,6 +324,7 @@ jobs:
 
               var collision := CollisionShape3D.new()
               var shape := BoxShape3D.new()
+
               shape.size = Vector3(110, 1, 110)
 
               collision.shape = shape
@@ -347,15 +356,20 @@ jobs:
               material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
               water.material_override = material
+
               add_child(water)
 
               for i in range(7):
                   var shine := MeshInstance3D.new()
                   var strip := PlaneMesh.new()
 
-                  strip.size = Vector2(3.5 + float(i % 3), 0.10)
+                  strip.size = Vector2(
+                      3.5 + float(i % 3),
+                      0.10
+                  )
 
                   shine.mesh = strip
+
                   shine.position = Vector3(
                       1.0 + float(i) * 4.8,
                       0.105,
@@ -441,7 +455,10 @@ jobs:
               ]
 
               for i in range(tree_positions.size()):
-                  create_tree(tree_positions[i], 0.85 + float(i % 4) * 0.08)
+                  create_tree(
+                      tree_positions[i],
+                      0.85 + float(i % 4) * 0.08
+                  )
 
               var pine_positions = [
                   Vector3(-17, 0, -19),
@@ -454,25 +471,31 @@ jobs:
                   create_pine(pos)
 
               for i in range(34):
-                  var x := -42.0 + float((i * 17) % 84)
-                  var z := -39.0 + float((i * 29) % 78)
+                  var x: float = -42.0 + float((i * 17) % 84)
+                  var z: float = -39.0 + float((i * 29) % 78)
 
                   if abs(x - 10.0) < 23.0 and abs(z + 8.0) < 15.0:
                       continue
 
-                  create_bush(Vector3(x, 0, z), 0.65 + float(i % 3) * 0.12)
+                  create_bush(
+                      Vector3(x, 0, z),
+                      0.65 + float(i % 3) * 0.12
+                  )
 
               for i in range(55):
-                  var x := -44.0 + float((i * 23) % 88)
-                  var z := -42.0 + float((i * 31) % 84)
+                  var x: float = -44.0 + float((i * 23) % 88)
+                  var z: float = -42.0 + float((i * 31) % 84)
 
                   create_grass(Vector3(x, 0, z))
 
               for i in range(22):
-                  var x := -38.0 + float((i * 19) % 76)
-                  var z := -36.0 + float((i * 27) % 72)
+                  var x: float = -38.0 + float((i * 19) % 76)
+                  var z: float = -36.0 + float((i * 27) % 72)
 
-                  create_flower(Vector3(x, 0, z), i % 2 == 0)
+                  create_flower(
+                      Vector3(x, 0, z),
+                      i % 2 == 0
+                  )
 
           func create_tree(pos: Vector3, scale_value: float):
               var trunk := MeshInstance3D.new()
@@ -483,9 +506,18 @@ jobs:
               trunk_mesh.height = 2.7
 
               trunk.mesh = trunk_mesh
-              trunk.position = pos + Vector3(0, 1.35 * scale_value, 0)
+              trunk.position = pos + Vector3(
+                  0,
+                  1.35 * scale_value,
+                  0
+              )
+
               trunk.scale = Vector3.ONE * scale_value
-              trunk.material_override = make_material(Color("#765238"), 0.95)
+
+              trunk.material_override = make_material(
+                  Color("#765238"),
+                  0.95
+              )
 
               add_child(trunk)
 
@@ -504,7 +536,7 @@ jobs:
 
                   crown.mesh = sphere
 
-                  var angle := float(j) * 1.57
+                  var angle: float = float(j) * 1.57
 
                   crown.position = pos + Vector3(
                       cos(angle) * 0.55,
@@ -512,8 +544,16 @@ jobs:
                       sin(angle) * 0.55
                   )
 
-                  crown.scale = Vector3(1.0, 0.72, 1.0) * scale_value
-                  crown.material_override = make_material(crown_colors[j % 3], 1.0)
+                  crown.scale = Vector3(
+                      1.0,
+                      0.72,
+                      1.0
+                  ) * scale_value
+
+                  crown.material_override = make_material(
+                      crown_colors[j % 3],
+                      1.0
+                  )
 
                   add_child(crown)
 
@@ -527,7 +567,11 @@ jobs:
 
               trunk.mesh = trunk_mesh
               trunk.position = pos + Vector3(0, 1.55, 0)
-              trunk.material_override = make_material(Color("#65462f"), 1.0)
+
+              trunk.material_override = make_material(
+                  Color("#65462f"),
+                  1.0
+              )
 
               add_child(trunk)
 
@@ -540,6 +584,7 @@ jobs:
                   cone.height = 2.3
 
                   crown.mesh = cone
+
                   crown.position = pos + Vector3(
                       0,
                       2.4 + float(j) * 0.85,
@@ -561,8 +606,18 @@ jobs:
               sphere.height = 1.15
 
               bush.mesh = sphere
-              bush.position = pos + Vector3(0, 0.55 * scale_value, 0)
-              bush.scale = Vector3(1.2, 0.75, 1.0) * scale_value
+
+              bush.position = pos + Vector3(
+                  0,
+                  0.55 * scale_value,
+                  0
+              )
+
+              bush.scale = Vector3(
+                  1.2,
+                  0.75,
+                  1.0
+              ) * scale_value
 
               bush.material_override = make_material(
                   Color("#477f3e"),
@@ -678,7 +733,11 @@ jobs:
 
               body.mesh = body_mesh
               body.position.y = 0.88
-              body.material_override = make_material(Color("#4f79a8"), 0.82)
+
+              body.material_override = make_material(
+                  Color("#4f79a8"),
+                  0.82
+              )
 
               player.add_child(body)
 
@@ -690,7 +749,11 @@ jobs:
 
               head.mesh = head_mesh
               head.position.y = 1.78
-              head.material_override = make_material(Color("#d99f78"), 0.88)
+
+              head.material_override = make_material(
+                  Color("#d99f78"),
+                  0.88
+              )
 
               player.add_child(head)
 
@@ -712,27 +775,39 @@ jobs:
               title.text = "MUNDO V1"
               title.position = Vector2(34, 24)
               title.add_theme_font_size_override("font_size", 32)
-              title.add_theme_color_override("font_color", Color("#ffffff"))
+              title.add_theme_color_override(
+                  "font_color",
+                  Color("#ffffff")
+              )
               layer.add_child(title)
 
               var subtitle := Label.new()
               subtitle.text = "V1.9 • UM NOVO MUNDO PARA EXPLORAR"
               subtitle.position = Vector2(36, 63)
               subtitle.add_theme_font_size_override("font_size", 16)
-              subtitle.add_theme_color_override("font_color", Color("#e4f5ff"))
+              subtitle.add_theme_color_override(
+                  "font_color",
+                  Color("#e4f5ff")
+              )
               layer.add_child(subtitle)
 
               var status := Label.new()
               status.text = "EXPLORA  •  DESCUBRA  •  CONSTRUA"
               status.position = Vector2(36, 96)
               status.add_theme_font_size_override("font_size", 14)
-              status.add_theme_color_override("font_color", Color("#ffffff"))
+              status.add_theme_color_override(
+                  "font_color",
+                  Color("#ffffff")
+              )
               layer.add_child(status)
 
               var joystick := Label.new()
               joystick.text = "◯"
               joystick.position = Vector2(55, 570)
-              joystick.add_theme_font_size_override("font_size", 82)
+              joystick.add_theme_font_size_override(
+                  "font_size",
+                  82
+              )
               joystick.add_theme_color_override(
                   "font_color",
                   Color(1, 1, 1, 0.38)
@@ -742,7 +817,10 @@ jobs:
               var jump := Label.new()
               jump.text = "PULAR"
               jump.position = Vector2(1040, 560)
-              jump.add_theme_font_size_override("font_size", 20)
+              jump.add_theme_font_size_override(
+                  "font_size",
+                  20
+              )
               jump.add_theme_color_override(
                   "font_color",
                   Color(1, 1, 1, 0.82)
@@ -752,7 +830,10 @@ jobs:
               var explore := Label.new()
               explore.text = "EXPLORAR"
               explore.position = Vector2(1010, 605)
-              explore.add_theme_font_size_override("font_size", 24)
+              explore.add_theme_font_size_override(
+                  "font_size",
+                  24
+              )
               explore.add_theme_color_override(
                   "font_color",
                   Color("#ffffff")
@@ -763,7 +844,7 @@ jobs:
               if not player:
                   return
 
-              var keyboard_input := Vector2(
+              var keyboard_input: Vector2 = Vector2(
                   Input.get_axis("move_left", "move_right"),
                   Input.get_axis("move_forward", "move_back")
               )
@@ -771,19 +852,19 @@ jobs:
               if keyboard_input.length() > 0.1:
                   move_input = keyboard_input.normalized()
 
-              var direction := Vector3(
+              var direction: Vector3 = Vector3(
                   move_input.x,
                   0,
                   move_input.y
               )
 
-              var speed := 4.2
+              var speed: float = 4.2
 
               if direction.length() > 0.1:
                   player.velocity.x = direction.x * speed
                   player.velocity.z = direction.z * speed
 
-                  var target_rotation := atan2(
+                  var target_rotation: float = atan2(
                       direction.x,
                       direction.z
                   )
@@ -824,10 +905,13 @@ jobs:
               if not camera:
                   return
 
-              var desired_position := player.global_position + Vector3(
-                  0,
-                  camera_height,
-                  camera_distance
+              var desired_position: Vector3 = (
+                  player.global_position
+                  + Vector3(
+                      0,
+                      camera_height,
+                      camera_distance
+                  )
               )
 
               camera.global_position = camera.global_position.lerp(
@@ -835,13 +919,15 @@ jobs:
                   delta * 5.0
               )
 
-              var look_target := player.global_position + Vector3(
-                  0,
-                  1.0,
-                  0
+              var look_target: Vector3 = (
+                  player.global_position
+                  + Vector3(0, 1.0, 0)
               )
 
-              camera.look_at(look_target, Vector3.UP)
+              camera.look_at(
+                  look_target,
+                  Vector3.UP
+              )
 
           func _unhandled_input(event):
               if event is InputEventScreenTouch:
@@ -851,8 +937,8 @@ jobs:
 
               elif event is InputEventScreenDrag:
                   if event.position.x < 430:
-                      var center := Vector2(150, 620)
-                      var offset := event.position - center
+                      var center: Vector2 = Vector2(150, 620)
+                      var offset: Vector2 = event.position - center
 
                       if offset.length() > 12.0:
                           move_input = offset.normalized()
@@ -860,17 +946,19 @@ jobs:
                           move_input = Vector2.ZERO
           EOF
 
-      - name: Criar export_presets.cfg
+      - name: Criar export_presets.cfg e keystore
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/.android"
+          mkdir -p /home/runner/.android
+
+          rm -f /home/runner/.android/debug.keystore
 
           keytool \
             -genkeypair \
             -v \
-            -keystore "$HOME/.android/debug.keystore" \
+            -keystore /home/runner/.android/debug.keystore \
             -storepass android \
             -keypass android \
             -alias androiddebugkey \
@@ -878,6 +966,8 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
+
+          test -f /home/runner/.android/debug.keystore
 
           cat > export_presets.cfg <<'EOF'
           [preset.0]
@@ -924,7 +1014,7 @@ jobs:
           architectures/x86=false
           architectures/x86_64=false
 
-          keystore/debug="$HOME/.android/debug.keystore"
+          keystore/debug="/home/runner/.android/debug.keystore"
           keystore/debug_user="androiddebugkey"
           keystore/debug_password="android"
 
@@ -932,6 +1022,8 @@ jobs:
           keystore/release_user=""
           keystore/release_password=""
           EOF
+
+          test -f export_presets.cfg
 
       - name: Validar projeto Godot
         shell: bash
@@ -977,7 +1069,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          unzip -l build/MundoV1.apk | grep "lib/arm64-v8a" || true
+          unzip -l build/MundoV1.apk | grep "lib/arm64-v8a"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
