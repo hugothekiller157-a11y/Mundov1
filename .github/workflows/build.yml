@@ -40,6 +40,9 @@ jobs:
           cd /tmp
 
           curl -L \
+            --fail \
+            --retry 3 \
+            --retry-delay 2 \
             -o commandlinetools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
@@ -49,7 +52,8 @@ jobs:
 
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
 
-          mv cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
+          mv cmdline-tools/* \
+            "$ANDROID_HOME/cmdline-tools/latest/"
 
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
@@ -62,6 +66,7 @@ jobs:
 
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
@@ -88,7 +93,9 @@ jobs:
 
           mkdir -p "$HOME/godot"
 
-          unzip -q godot.zip -d "$HOME/godot"
+          unzip -q \
+            godot.zip \
+            -d "$HOME/godot"
 
           GODOT_BINARY="$HOME/godot/Godot_v4.3-stable_linux.x86_64"
 
@@ -96,19 +103,16 @@ jobs:
 
           chmod +x "$GODOT_BINARY"
 
-          ln -sf "$GODOT_BINARY" "$HOME/godot/godot"
+          ln -sf \
+            "$GODOT_BINARY" \
+            "$HOME/godot/godot"
 
-          # IMPORTANTE:
-          # O PATH agora é realmente atualizado.
           echo "$HOME/godot" >> "$GITHUB_PATH"
 
-          # Também exportamos no passo atual.
           export PATH="$HOME/godot:$PATH"
 
-          # Verificação pelo caminho absoluto.
           "$GODOT_BINARY" --version
 
-          # Verificação pelo PATH.
           command -v godot
 
           godot --version
@@ -140,11 +144,30 @@ jobs:
 
           mkdir -p godot_templates
 
-          unzip -q godot_templates.tpz -d godot_templates
+          unzip -q \
+            godot_templates.tpz \
+            -d godot_templates
 
-          DEBUG_TEMPLATE="$(find godot_templates -type f -name "android_debug.apk" | head -n 1)"
-          RELEASE_TEMPLATE="$(find godot_templates -type f -name "android_release.apk" | head -n 1)"
-          SOURCE_TEMPLATE="$(find godot_templates -type f -name "android_source.zip" | head -n 1 || true)"
+          DEBUG_TEMPLATE="$(
+            find godot_templates \
+              -type f \
+              -name "android_debug.apk" \
+              | head -n 1
+          )"
+
+          RELEASE_TEMPLATE="$(
+            find godot_templates \
+              -type f \
+              -name "android_release.apk" \
+              | head -n 1
+          )"
+
+          SOURCE_TEMPLATE="$(
+            find godot_templates \
+              -type f \
+              -name "android_source.zip" \
+              | head -n 1 || true
+          )"
 
           test -n "$DEBUG_TEMPLATE"
           test -f "$DEBUG_TEMPLATE"
@@ -152,14 +175,25 @@ jobs:
           test -n "$RELEASE_TEMPLATE"
           test -f "$RELEASE_TEMPLATE"
 
-          cp "$DEBUG_TEMPLATE" "$TEMPLATE_DIR/android_debug.apk"
-          cp "$RELEASE_TEMPLATE" "$TEMPLATE_DIR/android_release.apk"
+          cp \
+            "$DEBUG_TEMPLATE" \
+            "$TEMPLATE_DIR/android_debug.apk"
 
-          if [ -n "${SOURCE_TEMPLATE:-}" ] && [ -f "$SOURCE_TEMPLATE" ]; then
-            cp "$SOURCE_TEMPLATE" "$TEMPLATE_DIR/android_source.zip"
+          cp \
+            "$RELEASE_TEMPLATE" \
+            "$TEMPLATE_DIR/android_release.apk"
+
+          if [ -n "${SOURCE_TEMPLATE:-}" ] && \
+             [ -f "$SOURCE_TEMPLATE" ]; then
+
+            cp \
+              "$SOURCE_TEMPLATE" \
+              "$TEMPLATE_DIR/android_source.zip"
+
           fi
 
-          echo "4.3.stable" > "$TEMPLATE_DIR/version.txt"
+          echo "4.3.stable" \
+            > "$TEMPLATE_DIR/version.txt"
 
           echo "Templates instalados:"
           ls -lah "$TEMPLATE_DIR"
@@ -174,11 +208,14 @@ jobs:
 
           mkdir -p "$HOME/.android"
 
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+          DEBUG_KEYSTORE="$HOME/.android/debug.keystore"
+
+          if [ ! -f "$DEBUG_KEYSTORE" ]; then
+
             keytool \
               -genkeypair \
               -v \
-              -keystore "$HOME/.android/debug.keystore" \
+              -keystore "$DEBUG_KEYSTORE" \
               -storepass android \
               -alias androiddebugkey \
               -keypass android \
@@ -186,11 +223,16 @@ jobs:
               -keysize 2048 \
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
+
           fi
 
-          test -f "$HOME/.android/debug.keystore"
+          test -f "$DEBUG_KEYSTORE"
 
-          ls -lah "$HOME/.android/debug.keystore"
+          ls -lah "$DEBUG_KEYSTORE"
+
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$DEBUG_KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
 
       # ============================================================
       # 7. CREATE PROJECT
@@ -203,6 +245,98 @@ jobs:
           mkdir -p scripts
           mkdir -p build
 
+          # --------------------------------------------------------
+          # ICON
+          # --------------------------------------------------------
+
+          cat > icon.svg <<'EOF'
+          <svg xmlns="http://www.w3.org/2000/svg"
+               width="512"
+               height="512"
+               viewBox="0 0 512 512">
+
+            <defs>
+              <linearGradient
+                id="bg"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1">
+                <stop
+                  offset="0%"
+                  stop-color="#244f5d"/>
+                <stop
+                  offset="100%"
+                  stop-color="#10272f"/>
+              </linearGradient>
+
+              <linearGradient
+                id="mountain"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1">
+                <stop
+                  offset="0%"
+                  stop-color="#79c7a2"/>
+                <stop
+                  offset="100%"
+                  stop-color="#2e604f"/>
+              </linearGradient>
+            </defs>
+
+            <rect
+              width="512"
+              height="512"
+              rx="110"
+              fill="url(#bg)"/>
+
+            <circle
+              cx="370"
+              cy="125"
+              r="58"
+              fill="#ffe2a1"/>
+
+            <path
+              d="M0 365
+                 L105 245
+                 L165 305
+                 L245 190
+                 L335 300
+                 L405 235
+                 L512 350
+                 L512 512
+                 L0 512 Z"
+              fill="url(#mountain)"/>
+
+            <path
+              d="M0 420
+                 C100 370 170 395 255 355
+                 C345 315 420 360 512 325
+                 L512 512
+                 L0 512 Z"
+              fill="#1e493e"/>
+
+            <path
+              d="M205 420
+                 C225 378 245 355 265 420
+                 C280 455 290 478 315 490
+                 L185 490
+                 C195 468 198 445 205 420 Z"
+              fill="#f47c38"/>
+
+            <circle
+              cx="255"
+              cy="415"
+              r="20"
+              fill="#ffd26d"/>
+          </svg>
+          EOF
+
+          # --------------------------------------------------------
+          # PROJECT.GODOT
+          # --------------------------------------------------------
+
           cat > project.godot <<'EOF'
           ; MUNDO V1 - V2.7
 
@@ -211,8 +345,11 @@ jobs:
           [application]
 
           config/name="MUNDO V1"
+          config/description="MUNDO V1 - Survival Adventure"
           run/main_scene="res://main.tscn"
+          config/icon="res://icon.svg"
           config/features=PackedStringArray("4.3", "GL Compatibility")
+
           boot_splash/bg_color=Color(0.04, 0.07, 0.1, 1)
           boot_splash/show_image=false
 
@@ -228,6 +365,7 @@ jobs:
 
           renderer/rendering_method="gl_compatibility"
           renderer/rendering_method.mobile="gl_compatibility"
+
           textures/default_filters/use_nearest_mipmap_filter=false
           textures/vram_compression/import_etc2_astc=true
 
@@ -272,6 +410,10 @@ jobs:
           theme/default_font_multichannel_signed_distance_field=true
           EOF
 
+          # --------------------------------------------------------
+          # MAIN SCENE
+          # --------------------------------------------------------
+
           cat > main.tscn <<'EOF'
           [gd_scene load_steps=2 format=3]
 
@@ -281,6 +423,10 @@ jobs:
           script = ExtResource("1")
           EOF
 
+          # --------------------------------------------------------
+          # EXPORT PRESETS
+          # --------------------------------------------------------
+
           cat > export_presets.cfg <<'EOF'
           [preset.0]
 
@@ -288,6 +434,10 @@ jobs:
           platform="Android"
           runnable=true
           advanced_options=true
+
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
 
           [preset.0.options]
 
@@ -312,19 +462,15 @@ jobs:
 
           command_line/extra_args=""
 
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-
           screen/immersive_mode=true
           screen/edge_to_edge=true
 
-          launcher_icons/main_192x192=""
-          launcher_icons/adaptive_foreground_432x432=""
+          launcher_icons/main_192x192="res://icon.svg"
+          launcher_icons/adaptive_foreground_432x432="res://icon.svg"
           launcher_icons/adaptive_background_432x432=""
           launcher_icons/adaptive_monochrome_432x432=""
 
-          keystore/debug="$HOME/.android/debug.keystore"
+          keystore/debug="/home/runner/.android/debug.keystore"
           keystore/debug_user="androiddebugkey"
           keystore/debug_password="android"
           EOF
@@ -613,7 +759,10 @@ jobs:
                       1.0
                   )
 
-                  mountain.material_override = material(Color("#38584c"), 1.0)
+                  mountain.material_override = material(
+                      Color("#38584c"),
+                      1.0
+                  )
 
                   add_child(mountain)
 
@@ -633,7 +782,10 @@ jobs:
               trunk_mesh.height = 3.2
 
               trunk.mesh = trunk_mesh
-              trunk.material_override = material(Color("#68452d"), 1.0)
+              trunk.material_override = material(
+                  Color("#68452d"),
+                  1.0
+              )
               trunk.position.y = 1.6
 
               tree.add_child(trunk)
@@ -714,7 +866,10 @@ jobs:
                       randf_range(1.0, 1.8)
                   )
 
-                  bush.material_override = material(Color("#35683c"), 1.0)
+                  bush.material_override = material(
+                      Color("#35683c"),
+                      1.0
+                  )
 
                   add_child(bush)
 
@@ -744,18 +899,48 @@ jobs:
                       randf_range(0.7, 1.5)
                   )
 
-                  rock.material_override = material(Color("#626a68"), 1.0)
+                  rock.material_override = material(
+                      Color("#626a68"),
+                      1.0
+                  )
 
                   add_child(rock)
 
-              create_resource(Vector3(-8.0, 0.7, -5.0), "wood")
-              create_resource(Vector3(10.0, 0.7, 7.0), "wood")
-              create_resource(Vector3(-18.0, 0.7, 14.0), "stone")
-              create_resource(Vector3(21.0, 0.7, 10.0), "stone")
-              create_resource(Vector3(28.0, 0.7, -17.0), "crystal")
-              create_resource(Vector3(-31.0, 0.7, -21.0), "crystal")
+              create_resource(
+                  Vector3(-8.0, 0.7, -5.0),
+                  "wood"
+              )
 
-          func create_resource(pos: Vector3, resource_type: String) -> void:
+              create_resource(
+                  Vector3(10.0, 0.7, 7.0),
+                  "wood"
+              )
+
+              create_resource(
+                  Vector3(-18.0, 0.7, 14.0),
+                  "stone"
+              )
+
+              create_resource(
+                  Vector3(21.0, 0.7, 10.0),
+                  "stone"
+              )
+
+              create_resource(
+                  Vector3(28.0, 0.7, -17.0),
+                  "crystal"
+              )
+
+              create_resource(
+                  Vector3(-31.0, 0.7, -21.0),
+                  "crystal"
+              )
+
+          func create_resource(
+              pos: Vector3,
+              resource_type: String
+          ) -> void:
+
               var node: MeshInstance3D = MeshInstance3D.new()
 
               var mesh: SphereMesh = SphereMesh.new()
@@ -766,12 +951,21 @@ jobs:
               node.position = pos
 
               if resource_type == "wood":
-                  node.material_override = material(Color("#8a542e"), 0.9)
+
+                  node.material_override = material(
+                      Color("#8a542e"),
+                      0.9
+                  )
 
               elif resource_type == "stone":
-                  node.material_override = material(Color("#727a78"), 0.9)
+
+                  node.material_override = material(
+                      Color("#727a78"),
+                      0.9
+                  )
 
               else:
+
                   var crystal_mat: StandardMaterial3D = material(
                       Color("#74d8e9"),
                       0.3,
@@ -852,8 +1046,16 @@ jobs:
                           randf_range(-2.0, 2.0)
                       )
 
-                      part.scale = Vector3(1.4, 0.55, 1.0)
-                      part.material_override = material(Color("#ffffff"), 1.0)
+                      part.scale = Vector3(
+                          1.4,
+                          0.55,
+                          1.0
+                      )
+
+                      part.material_override = material(
+                          Color("#ffffff"),
+                          1.0
+                      )
 
                       cloud.add_child(part)
 
@@ -876,7 +1078,10 @@ jobs:
               fire.mesh = fire_mesh
               fire.position = Vector3(0, 0.8, 0)
 
-              var fire_mat: StandardMaterial3D = material(Color("#ff7b22"), 0.3)
+              var fire_mat: StandardMaterial3D = material(
+                  Color("#ff7b22"),
+                  0.3
+              )
 
               fire_mat.emission_enabled = true
               fire_mat.emission = Color("#ff5a16")
@@ -912,7 +1117,10 @@ jobs:
                   )
 
                   log.position = Vector3(0, 0.25, 0)
-                  log.material_override = material(Color("#5d3927"))
+
+                  log.material_override = material(
+                      Color("#5d3927")
+                  )
 
                   camp.add_child(log)
 
@@ -925,7 +1133,11 @@ jobs:
           func create_player() -> void:
               player = CharacterBody3D.new()
               player.name = "Player"
-              player.position = Vector3(0.0, 1.4, 6.0)
+              player.position = Vector3(
+                  0.0,
+                  1.4,
+                  6.0
+              )
 
               var collision: CollisionShape3D = CollisionShape3D.new()
               var shape: CapsuleShape3D = CapsuleShape3D.new()
@@ -946,7 +1158,11 @@ jobs:
 
               body.mesh = body_mesh
               body.position.y = 0.85
-              body.material_override = material(Color("#d77b42"), 0.8)
+
+              body.material_override = material(
+                  Color("#d77b42"),
+                  0.8
+              )
 
               player.add_child(body)
 
@@ -957,19 +1173,39 @@ jobs:
               head_mesh.height = 0.76
 
               head.mesh = head_mesh
-              head.position = Vector3(0, 1.75, 0)
-              head.material_override = material(Color("#e4a56f"), 0.8)
+              head.position = Vector3(
+                  0,
+                  1.75,
+                  0
+              )
+
+              head.material_override = material(
+                  Color("#e4a56f"),
+                  0.8
+              )
 
               player.add_child(head)
 
               var backpack: MeshInstance3D = MeshInstance3D.new()
               var backpack_mesh: BoxMesh = BoxMesh.new()
 
-              backpack_mesh.size = Vector3(0.55, 0.65, 0.25)
+              backpack_mesh.size = Vector3(
+                  0.55,
+                  0.65,
+                  0.25
+              )
 
               backpack.mesh = backpack_mesh
-              backpack.position = Vector3(0, 1.0, 0.35)
-              backpack.material_override = material(Color("#374f5b"), 0.9)
+              backpack.position = Vector3(
+                  0,
+                  1.0,
+                  0.35
+              )
+
+              backpack.material_override = material(
+                  Color("#374f5b"),
+                  0.9
+              )
 
               player.add_child(backpack)
 
@@ -978,7 +1214,12 @@ jobs:
               camera = Camera3D.new()
               camera.name = "Camera"
 
-              camera.position = Vector3(0.0, 4.3, 7.4)
+              camera.position = Vector3(
+                  0.0,
+                  4.3,
+                  7.4
+              )
+
               camera.current = true
 
               player.add_child(camera)
@@ -996,34 +1237,52 @@ jobs:
               var title: Label = Label.new()
               title.text = "MUNDO V1"
               title.position = Vector2(32, 24)
-              title.add_theme_font_size_override("font_size", 30)
+              title.add_theme_font_size_override(
+                  "font_size",
+                  30
+              )
               canvas.add_child(title)
 
               var version: Label = Label.new()
               version.text = "V2.7 • SURVIVAL"
               version.position = Vector2(34, 61)
-              version.add_theme_font_size_override("font_size", 15)
+              version.add_theme_font_size_override(
+                  "font_size",
+                  15
+              )
               version.modulate = Color("#d8edf5")
               canvas.add_child(version)
 
               life_label = Label.new()
               life_label.position = Vector2(34, 98)
-              life_label.add_theme_font_size_override("font_size", 17)
+              life_label.add_theme_font_size_override(
+                  "font_size",
+                  17
+              )
               canvas.add_child(life_label)
 
               stamina_label = Label.new()
               stamina_label.position = Vector2(34, 124)
-              stamina_label.add_theme_font_size_override("font_size", 17)
+              stamina_label.add_theme_font_size_override(
+                  "font_size",
+                  17
+              )
               canvas.add_child(stamina_label)
 
               inventory_label = Label.new()
               inventory_label.position = Vector2(34, 158)
-              inventory_label.add_theme_font_size_override("font_size", 17)
+              inventory_label.add_theme_font_size_override(
+                  "font_size",
+                  17
+              )
               canvas.add_child(inventory_label)
 
               status_label = Label.new()
               status_label.position = Vector2(34, 205)
-              status_label.add_theme_font_size_override("font_size", 16)
+              status_label.add_theme_font_size_override(
+                  "font_size",
+                  16
+              )
               status_label.modulate = Color("#d7f5df")
               canvas.add_child(status_label)
 
@@ -1031,7 +1290,10 @@ jobs:
               message_label.position = Vector2(0, 635)
               message_label.size = Vector2(1280, 55)
               message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-              message_label.add_theme_font_size_override("font_size", 21)
+              message_label.add_theme_font_size_override(
+                  "font_size",
+                  21
+              )
               canvas.add_child(message_label)
 
               create_action_button(
@@ -1065,13 +1327,29 @@ jobs:
               joystick_base = ColorRect.new()
               joystick_base.position = Vector2(55, 500)
               joystick_base.size = Vector2(145, 145)
-              joystick_base.color = Color(0.05, 0.10, 0.12, 0.35)
+              joystick_base.color = Color(
+                  0.05,
+                  0.10,
+                  0.12,
+                  0.35
+              )
               canvas.add_child(joystick_base)
 
               joystick_knob = ColorRect.new()
-              joystick_knob.position = Vector2(95, 540)
-              joystick_knob.size = Vector2(65, 65)
-              joystick_knob.color = Color(0.85, 0.95, 1.0, 0.55)
+              joystick_knob.position = Vector2(
+                  95,
+                  540
+              )
+              joystick_knob.size = Vector2(
+                  65,
+                  65
+              )
+              joystick_knob.color = Color(
+                  0.85,
+                  0.95,
+                  1.0,
+                  0.55
+              )
               canvas.add_child(joystick_knob)
 
           func create_action_button(
@@ -1080,13 +1358,20 @@ jobs:
               pos: Vector2,
               action_name: String
           ) -> void:
+
               var button: Button = Button.new()
 
               button.text = text_value
               button.position = pos
-              button.size = Vector2(180, 52)
+              button.size = Vector2(
+                  180,
+                  52
+              )
 
-              button.add_theme_font_size_override("font_size", 17)
+              button.add_theme_font_size_override(
+                  "font_size",
+                  17
+              )
 
               button.pressed.connect(
                   func() -> void:
@@ -1099,7 +1384,10 @@ jobs:
           # ACTIONS
           # ==========================================================
 
-          func action_button_pressed(action_name: String) -> void:
+          func action_button_pressed(
+              action_name: String
+          ) -> void:
+
               if action_name == "collect":
                   collect_nearest()
 
@@ -1124,6 +1412,7 @@ jobs:
               var nearest_distance: float = 4.0
 
               for i in range(resource_nodes.size()):
+
                   var data: Dictionary = resource_nodes[i]
 
                   if not data["active"]:
@@ -1134,8 +1423,10 @@ jobs:
                   if not is_instance_valid(node):
                       continue
 
-                  var distance: float = player.global_position.distance_to(
-                      node.global_position
+                  var distance: float = (
+                      player.global_position.distance_to(
+                          node.global_position
+                      )
                   )
 
                   if distance < nearest_distance:
@@ -1143,12 +1434,22 @@ jobs:
                       nearest_index = i
 
               if nearest_index == -1:
-                  show_message("Nenhum recurso próximo.")
+                  show_message(
+                      "Nenhum recurso próximo."
+                  )
                   return
 
-              var selected: Dictionary = resource_nodes[nearest_index]
-              var selected_node: MeshInstance3D = selected["node"]
-              var resource_type: String = selected["type"]
+              var selected: Dictionary = resource_nodes[
+                  nearest_index
+              ]
+
+              var selected_node: MeshInstance3D = selected[
+                  "node"
+              ]
+
+              var resource_type: String = selected[
+                  "type"
+              ]
 
               if resource_type == "wood":
                   wood += 3
@@ -1163,7 +1464,10 @@ jobs:
                   show_message("+1 cristal")
 
               selected["active"] = false
-              resource_nodes[nearest_index] = selected
+
+              resource_nodes[
+                  nearest_index
+              ] = selected
 
               selected_node.visible = false
 
@@ -1172,8 +1476,11 @@ jobs:
           # ==========================================================
 
           func build_shelter() -> void:
+
               if shelter_built:
-                  show_message("O abrigo já foi construído.")
+                  show_message(
+                      "O abrigo já foi construído."
+                  )
                   return
 
               if wood < 6 or stone < 4:
@@ -1191,36 +1498,71 @@ jobs:
               var base: MeshInstance3D = MeshInstance3D.new()
               var base_mesh: BoxMesh = BoxMesh.new()
 
-              base_mesh.size = Vector3(5.0, 0.35, 4.0)
+              base_mesh.size = Vector3(
+                  5.0,
+                  0.35,
+                  4.0
+              )
 
               base.mesh = base_mesh
-              base.position = Vector3(0, 0.2, 6.0)
-              base.material_override = material(Color("#71533a"))
+              base.position = Vector3(
+                  0,
+                  0.2,
+                  6.0
+              )
+
+              base.material_override = material(
+                  Color("#71533a")
+              )
 
               shelter_root.add_child(base)
 
               for x in [-2.2, 2.2]:
                   for z in [4.4, 7.6]:
+
                       var post: MeshInstance3D = MeshInstance3D.new()
                       var post_mesh: BoxMesh = BoxMesh.new()
 
-                      post_mesh.size = Vector3(0.35, 2.8, 0.35)
+                      post_mesh.size = Vector3(
+                          0.35,
+                          2.8,
+                          0.35
+                      )
 
                       post.mesh = post_mesh
-                      post.position = Vector3(x, 1.6, z)
-                      post.material_override = material(Color("#6d452b"))
+                      post.position = Vector3(
+                          x,
+                          1.6,
+                          z
+                      )
+
+                      post.material_override = material(
+                          Color("#6d452b")
+                      )
 
                       shelter_root.add_child(post)
 
               var roof: MeshInstance3D = MeshInstance3D.new()
               var roof_mesh: BoxMesh = BoxMesh.new()
 
-              roof_mesh.size = Vector3(5.4, 0.35, 4.4)
+              roof_mesh.size = Vector3(
+                  5.4,
+                  0.35,
+                  4.4
+              )
 
               roof.mesh = roof_mesh
-              roof.position = Vector3(0, 3.15, 6.0)
+              roof.position = Vector3(
+                  0,
+                  3.15,
+                  6.0
+              )
+
               roof.rotation_degrees.z = 2.0
-              roof.material_override = material(Color("#354f48"))
+
+              roof.material_override = material(
+                  Color("#354f48")
+              )
 
               shelter_root.add_child(roof)
 
@@ -1228,26 +1570,40 @@ jobs:
 
               shelter_built = true
 
-              show_message("ABRIGO CONSTRUÍDO!")
+              show_message(
+                  "ABRIGO CONSTRUÍDO!"
+              )
 
           # ==========================================================
           # CAMP
           # ==========================================================
 
           func use_camp() -> void:
+
               if player == null:
                   return
 
-              var distance: float = player.global_position.distance_to(
-                  Vector3.ZERO
+              var distance: float = (
+                  player.global_position.distance_to(
+                      Vector3.ZERO
+                  )
               )
 
               if distance > 6.0:
-                  show_message("Aproxime-se da fogueira.")
+                  show_message(
+                      "Aproxime-se da fogueira."
+                  )
                   return
 
-              life = min(100.0, life + 15.0)
-              stamina = min(100.0, stamina + 35.0)
+              life = min(
+                  100.0,
+                  life + 15.0
+              )
+
+              stamina = min(
+                  100.0,
+                  stamina + 35.0
+              )
 
               show_message(
                   "Fogueira usada: vida e energia recuperadas."
@@ -1258,10 +1614,13 @@ jobs:
           # ==========================================================
 
           func _physics_process(delta: float) -> void:
+
               if player == null:
                   return
 
-              var input_vector: Vector2 = joystick_vector_value
+              var input_vector: Vector2 = (
+                  joystick_vector_value
+              )
 
               var keyboard: Vector2 = Input.get_vector(
                   "move_left",
@@ -1282,29 +1641,52 @@ jobs:
               if direction.length() > 1.0:
                   direction = direction.normalized()
 
-              sprinting = Input.is_action_pressed("sprint")
+              sprinting = Input.is_action_pressed(
+                  "sprint"
+              )
 
               var speed: float = 4.2
 
-              if sprinting and stamina > 1.0 and direction.length() > 0.1:
+              if (
+                  sprinting
+                  and stamina > 1.0
+                  and direction.length() > 0.1
+              ):
+
                   speed = 7.0
+
                   stamina = max(
                       0.0,
                       stamina - 18.0 * delta
                   )
+
               else:
+
                   stamina = min(
                       100.0,
                       stamina + 9.0 * delta
                   )
 
-              player.velocity.x = direction.x * speed
-              player.velocity.z = direction.z * speed
+              player.velocity.x = (
+                  direction.x * speed
+              )
+
+              player.velocity.z = (
+                  direction.z * speed
+              )
 
               if not player.is_on_floor():
-                  player.velocity.y -= 18.0 * delta
+
+                  player.velocity.y -= (
+                      18.0 * delta
+                  )
+
               else:
-                  if Input.is_action_just_pressed("jump"):
+
+                  if Input.is_action_just_pressed(
+                      "jump"
+                  ):
+
                       player.velocity.y = 7.0
 
               player.move_and_slide()
@@ -1318,39 +1700,53 @@ jobs:
           # ==========================================================
 
           func update_camera(delta: float) -> void:
+
               if camera == null:
                   return
 
-              var target_position: Vector3 = player.global_position + Vector3(
-                  0.0,
-                  4.3,
-                  7.4
+              var target_position: Vector3 = (
+                  player.global_position
+                  + Vector3(
+                      0.0,
+                      4.3,
+                      7.4
+                  )
               )
 
-              camera.global_position = camera.global_position.lerp(
-                  target_position,
-                  min(1.0, delta * 5.0)
+              camera.global_position = (
+                  camera.global_position.lerp(
+                      target_position,
+                      min(1.0, delta * 5.0)
+                  )
               )
 
-              var look_target: Vector3 = player.global_position + Vector3(
-                  0.0,
-                  1.2,
-                  0.0
+              var look_target: Vector3 = (
+                  player.global_position
+                  + Vector3(
+                      0.0,
+                      1.2,
+                      0.0
+                  )
               )
 
-              camera.look_at(look_target)
+              camera.look_at(
+                  look_target
+              )
 
           # ==========================================================
           # DAY / NIGHT
           # ==========================================================
 
           func update_day_night(delta: float) -> void:
+
               day_time += delta * 0.012
 
               if day_time > 1.0:
                   day_time = 0.0
 
-              var angle: float = day_time * 360.0
+              var angle: float = (
+                  day_time * 360.0
+              )
 
               sun.rotation_degrees = Vector3(
                   angle - 90.0,
@@ -1364,9 +1760,15 @@ jobs:
                   1.0
               )
 
-              sun.light_energy = 0.22 + daylight * 1.08
+              sun.light_energy = (
+                  0.22 + daylight * 1.08
+              )
 
-              if environment != null and environment.environment != null:
+              if (
+                  environment != null
+                  and environment.environment != null
+              ):
+
                   environment.environment.ambient_light_energy = (
                       0.22 + daylight * 0.72
                   )
@@ -1376,21 +1778,32 @@ jobs:
           # ==========================================================
 
           func update_ui() -> void:
+
               if life_label == null:
                   return
 
-              life_label.text = "VIDA   %d / 100" % int(life)
+              life_label.text = (
+                  "VIDA   %d / 100"
+                  % int(life)
+              )
 
               stamina_label.text = (
-                  "ENERGIA   %d / 100" % int(stamina)
+                  "ENERGIA   %d / 100"
+                  % int(stamina)
               )
 
               inventory_label.text = (
                   "MADEIRA %d   PEDRA %d   CRISTAL %d"
-                  % [wood, stone, crystal]
+                  % [
+                      wood,
+                      stone,
+                      crystal
+                  ]
               )
 
-              var hour: int = int(day_time * 24.0)
+              var hour: int = int(
+                  day_time * 24.0
+              )
 
               status_label.text = (
                   "Dia %02d:00   •   Explore, colete e construa"
@@ -1402,65 +1815,100 @@ jobs:
           # ==========================================================
 
           func _input(event: InputEvent) -> void:
+
               if event is InputEventScreenTouch:
+
                   var touch: InputEventScreenTouch = event
 
                   if touch.pressed:
+
                       if (
                           touch.position.x < 300.0
                           and touch.position.y > 430.0
                       ):
+
                           joystick_active = true
                           joystick_touch_id = touch.index
-                          joystick_center = Vector2(127.0, 572.0)
+                          joystick_center = Vector2(
+                              127.0,
+                              572.0
+                          )
+
                           joystick_vector_value = Vector2.ZERO
 
                       elif touch.position.x < 850.0:
+
                           look_touch_id = touch.index
-                          last_look_position = touch.position
+                          last_look_position = (
+                              touch.position
+                          )
 
                   else:
+
                       if touch.index == joystick_touch_id:
+
                           joystick_active = false
                           joystick_touch_id = -1
-                          joystick_vector_value = Vector2.ZERO
+
+                          joystick_vector_value = (
+                              Vector2.ZERO
+                          )
 
                           if joystick_knob != null:
-                              joystick_knob.position = Vector2(
-                                  95,
-                                  540
+
+                              joystick_knob.position = (
+                                  Vector2(
+                                      95,
+                                      540
+                                  )
                               )
 
                       if touch.index == look_touch_id:
                           look_touch_id = -1
 
               elif event is InputEventScreenDrag:
+
                   var drag: InputEventScreenDrag = event
 
                   if drag.index == joystick_touch_id:
+
                       var offset: Vector2 = (
-                          drag.position - joystick_center
+                          drag.position
+                          - joystick_center
                       )
 
                       if offset.length() > 55.0:
-                          offset = offset.normalized() * 55.0
+                          offset = (
+                              offset.normalized()
+                              * 55.0
+                          )
 
-                      joystick_vector_value = offset / 55.0
+                      joystick_vector_value = (
+                          offset / 55.0
+                      )
 
                       if joystick_knob != null:
-                          joystick_knob.position = Vector2(
-                              127.0 + offset.x - 32.5,
-                              572.0 + offset.y - 32.5
+
+                          joystick_knob.position = (
+                              Vector2(
+                                  127.0 + offset.x - 32.5,
+                                  572.0 + offset.y - 32.5
+                              )
                           )
 
                   elif drag.index == look_touch_id:
+
                       var look_delta: Vector2 = (
-                          drag.position - last_look_position
+                          drag.position
+                          - last_look_position
                       )
 
-                      last_look_position = drag.position
+                      last_look_position = (
+                          drag.position
+                      )
 
                       if player != null:
+
                           player.rotate_y(
                               -look_delta.x * 0.004
                           )
@@ -1470,6 +1918,7 @@ jobs:
           # ==========================================================
 
           func save_game() -> void:
+
               if player == null:
                   return
 
@@ -1492,12 +1941,19 @@ jobs:
               )
 
               if file:
-                  file.store_string(JSON.stringify(data))
+
+                  file.store_string(
+                      JSON.stringify(data)
+                  )
+
                   file.close()
 
-                  show_message("PROGRESSO SALVO!")
+                  show_message(
+                      "PROGRESSO SALVO!"
+                  )
 
           func load_game() -> void:
+
               if not FileAccess.file_exists(
                   "user://savegame.json"
               ):
@@ -1511,49 +1967,120 @@ jobs:
               if file == null:
                   return
 
-              var text_data: String = file.get_as_text()
+              var text_data: String = (
+                  file.get_as_text()
+              )
+
               file.close()
 
-              var parsed: Variant = JSON.parse_string(text_data)
+              var parsed: Variant = (
+                  JSON.parse_string(
+                      text_data
+                  )
+              )
 
-              if parsed == null or not parsed is Dictionary:
+              if (
+                  parsed == null
+                  or not parsed is Dictionary
+              ):
                   return
 
               var data: Dictionary = parsed
 
               if player != null:
+
                   player.position = Vector3(
-                      float(data.get("position_x", 0.0)),
-                      float(data.get("position_y", 1.4)),
-                      float(data.get("position_z", 6.0))
+                      float(
+                          data.get(
+                              "position_x",
+                              0.0
+                          )
+                      ),
+                      float(
+                          data.get(
+                              "position_y",
+                              1.4
+                          )
+                      ),
+                      float(
+                          data.get(
+                              "position_z",
+                              6.0
+                          )
+                      )
                   )
 
-              life = float(data.get("life", 100.0))
-              stamina = float(data.get("stamina", 100.0))
-              wood = int(data.get("wood", 0))
-              stone = int(data.get("stone", 0))
-              crystal = int(data.get("crystal", 0))
+              life = float(
+                  data.get(
+                      "life",
+                      100.0
+                  )
+              )
+
+              stamina = float(
+                  data.get(
+                      "stamina",
+                      100.0
+                  )
+              )
+
+              wood = int(
+                  data.get(
+                      "wood",
+                      0
+                  )
+              )
+
+              stone = int(
+                  data.get(
+                      "stone",
+                      0
+                  )
+              )
+
+              crystal = int(
+                  data.get(
+                      "crystal",
+                      0
+                  )
+              )
+
               shelter_built = bool(
-                  data.get("shelter_built", false)
+                  data.get(
+                      "shelter_built",
+                      false
+                  )
               )
 
               if shelter_built:
                   build_saved_shelter()
 
-              show_message("PROGRESSO CARREGADO")
+              show_message(
+                  "PROGRESSO CARREGADO"
+              )
 
           func build_saved_shelter() -> void:
-              if shelter_built and shelter_root == null:
+
+              if (
+                  shelter_built
+                  and shelter_root == null
+              ):
+
                   wood += 6
                   stone += 4
+
                   shelter_built = false
+
                   build_shelter()
 
           # ==========================================================
           # MESSAGE
           # ==========================================================
 
-          func show_message(text_value: String) -> void:
+          func show_message(
+              text_value: String
+          ) -> void:
+
               if message_label == null:
                   return
 
@@ -1565,15 +2092,18 @@ jobs:
           # ==========================================================
 
           func _process(delta: float) -> void:
+
               game_time += delta
 
               if (
                   message_label != null
                   and game_time > 3.5
               ):
+
                   message_label.text = ""
 
               if player != null:
+
                   var camp_distance: float = (
                       player.global_position.distance_to(
                           Vector3.ZERO
@@ -1581,6 +2111,7 @@ jobs:
                   )
 
                   if camp_distance < 5.0:
+
                       stamina = min(
                           100.0,
                           stamina + delta * 2.0
@@ -1588,7 +2119,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 9. VALIDATE GODOT PROJECT
+      # 9. VALIDATE PROJECT
       # ============================================================
       - name: Validate Godot Project
         shell: bash
@@ -1608,7 +2139,28 @@ jobs:
             --quit
 
       # ============================================================
-      # 10. EXPORT APK
+      # 10. CHECK EXPORT PRESET
+      # ============================================================
+      - name: Check Android Export Preset
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          test -f export_presets.cfg
+
+          echo "===== EXPORT PRESETS ====="
+
+          cat export_presets.cfg
+
+          echo "=========================="
+
+          grep -q 'name="Android"' export_presets.cfg
+          grep -q 'export_filter="all_resources"' export_presets.cfg
+
+          test -f "$HOME/.android/debug.keystore"
+
+      # ============================================================
+      # 11. EXPORT APK
       # ============================================================
       - name: Export MUNDO V1 V2.7 APK
         shell: bash
@@ -1619,20 +2171,27 @@ jobs:
 
           test -x "$GODOT"
 
+          test -f "$HOME/.android/debug.keystore"
+
           mkdir -p build
+
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/.android/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
 
           "$GODOT" \
             --headless \
             --path . \
-            --export-debug "Android" \
-            build/MundoV1-V2.7.apk
+            --export-debug \
+            "Android" \
+            "build/MundoV1-V2.7.apk"
 
           test -f build/MundoV1-V2.7.apk
 
           ls -lh build/MundoV1-V2.7.apk
 
       # ============================================================
-      # 11. VERIFY APK
+      # 12. VERIFY APK
       # ============================================================
       - name: Verify APK
         shell: bash
@@ -1645,7 +2204,7 @@ jobs:
             build/MundoV1-V2.7.apk
 
       # ============================================================
-      # 12. APK INFORMATION
+      # 13. APK INFORMATION
       # ============================================================
       - name: APK Information
         shell: bash
@@ -1654,10 +2213,11 @@ jobs:
 
           "$ANDROID_HOME/build-tools/34.0.0/aapt" \
             dump badging \
-            build/MundoV1-V2.7.apk | head -n 20
+            build/MundoV1-V2.7.apk \
+            | head -n 30
 
       # ============================================================
-      # 13. UPLOAD APK
+      # 14. UPLOAD APK
       # ============================================================
       - name: Upload MUNDO V1 V2.7
         uses: actions/upload-artifact@v4
