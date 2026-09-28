@@ -1,0 +1,92 @@
+name: MUNDO V1 V5.0 - SURVIVAL ISLAND
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build MUNDO V1 V5.0
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/android-sdk/cmdline-tools"
+          cd /tmp
+          curl -L -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline-tools.zip
+          rm -rf "$HOME/android-sdk/cmdline-tools/latest"
+          mv cmdline-tools "$HOME/android-sdk/cmdline-tools/latest"
+          export ANDROID_HOME="$HOME/android-sdk"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - name: Godot 4.3
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd /tmp
+          curl -L -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          rm -rf "$HOME/godot"
+          mkdir -p "$HOME/godot"
+          unzip -q godot.zip -d "$HOME/godot"
+          find "$HOME/godot" -type f -name 'Godot_v4.3-stable_linux.x86_64' -exec cp {} "$HOME/godot/godot" \;
+          chmod +x "$HOME/godot/godot"
+          echo "$HOME/godot" >> "$GITHUB_PATH"
+      - name: Godot Android templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd /tmp
+          curl -L -o templates.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          rm -rf "$HOME/.local/share/godot/export_templates/4.3.stable" /tmp/godot_templates
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable" /tmp/godot_templates
+          unzip -q templates.tpz -d /tmp/godot_templates
+          find /tmp/godot_templates -type f \( -name android_debug.apk -o -name android_release.apk -o -name android_source.zip \) -exec cp {} "$HOME/.local/share/godot/export_templates/4.3.stable/" \;
+          printf '4.3.stable\n' > "$HOME/.local/share/godot/export_templates/4.3.stable/version.txt"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
+      - name: Debug keystore
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+      - name: Validate project
+        shell: bash
+        run: |
+          set -euxo pipefail
+          "$HOME/godot/godot" --headless --editor --path . --quit
+      - name: Export APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          sed -i "s#keystore/debug=\"/home/runner/.android/debug.keystore\"#keystore/debug=\"$HOME/.android/debug.keystore\"#" export_presets.cfg
+          "$HOME/godot/godot" --headless --path . --export-debug "Android" "build/MundoV1-V5.0.apk"
+          test -s build/MundoV1-V5.0.apk
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose build/MundoV1-V5.0.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging build/MundoV1-V5.0.apk | head -20
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MUNDO-V1-V5.0-ILHA-SOBREVIVENCIA-ARM64
+          path: build/MundoV1-V5.0.apk
+          if-no-files-found: error
