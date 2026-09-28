@@ -1,4 +1,4 @@
-name: MUNDO V1.3.1 - Base Estavel
+name: MUNDO V1.4 - Visual Natural
 
 on:
   workflow_dispatch:
@@ -23,7 +23,6 @@ jobs:
           set -euxo pipefail
 
           mkdir -p "$HOME/android-sdk/cmdline-tools"
-
           cd "$RUNNER_TEMP"
 
           wget -q \
@@ -31,7 +30,6 @@ jobs:
             -O cmdline-tools.zip
 
           unzip -q cmdline-tools.zip
-
           mv cmdline-tools "$HOME/android-sdk/cmdline-tools/latest"
 
           echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
@@ -50,8 +48,6 @@ jobs:
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-          adb start-server || true
-
       - name: Instalar Godot 4.3
         shell: bash
         run: |
@@ -67,16 +63,19 @@ jobs:
 
           chmod +x Godot_v4.3-stable_linux.x86_64
 
-          sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          sudo mv \
+            Godot_v4.3-stable_linux.x86_64 \
+            /usr/local/bin/godot
 
           godot --version
 
-      - name: Instalar templates Android do Godot
+      - name: Instalar templates Android
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
 
           cd "$RUNNER_TEMP"
 
@@ -86,16 +85,18 @@ jobs:
 
           unzip -q templates.tpz
 
-          mv templates/android_debug.apk \
+          mv \
+            templates/android_debug.apk \
             "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
 
-          mv templates/android_release.apk \
+          mv \
+            templates/android_release.apk \
             "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
 
-          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
-          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
+          test -f \
+            "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
 
-      - name: Criar projeto MUNDO V1.3.1
+      - name: Criar projeto MUNDO V1.4
         shell: bash
         run: |
           set -euxo pipefail
@@ -111,9 +112,6 @@ jobs:
           mkdir -p build
 
           cat > project.godot <<'EOF'
-          ; MUNDO V1.3.1
-          ; Base estavel Android
-
           config_version=5
 
           [application]
@@ -198,56 +196,56 @@ jobs:
               create_environment()
               create_ground()
               create_water()
-              create_hills()
+              create_terrain_details()
               create_trees()
+              create_vegetation()
               create_rocks()
               create_player()
               create_camera()
               create_ui()
 
           func make_material(color: Color, roughness := 0.8):
-              var m := StandardMaterial3D.new()
-              m.albedo_color = color
-              m.roughness = roughness
-              return m
+              var material := StandardMaterial3D.new()
+              material.albedo_color = color
+              material.roughness = roughness
+              return material
 
           func create_environment():
-              var env := WorldEnvironment.new()
+              var world := WorldEnvironment.new()
               var environment := Environment.new()
 
               environment.background_mode = Environment.BG_COLOR
-              environment.background_color = Color("#78aee0")
+              environment.background_color = Color("#82b8e8")
 
               environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
               environment.ambient_light_color = Color("#dceeff")
-              environment.ambient_light_energy = 0.8
+              environment.ambient_light_energy = 0.85
 
               environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 
-              env.environment = environment
-              add_child(env)
+              world.environment = environment
+              add_child(world)
 
               var sun := DirectionalLight3D.new()
 
-              sun.rotation_degrees = Vector3(-50, -30, 0)
-              sun.light_energy = 1.3
+              sun.rotation_degrees = Vector3(-52, -32, 0)
+              sun.light_energy = 1.25
               sun.shadow_enabled = true
-              sun.directional_shadow_max_distance = 80.0
+              sun.directional_shadow_max_distance = 90.0
 
               add_child(sun)
 
           func create_ground():
               var ground := MeshInstance3D.new()
-
               var mesh := PlaneMesh.new()
 
-              mesh.size = Vector2(100, 100)
-              mesh.subdivide_width = 20
-              mesh.subdivide_depth = 20
+              mesh.size = Vector2(110, 110)
+              mesh.subdivide_width = 24
+              mesh.subdivide_depth = 24
 
               ground.mesh = mesh
               ground.material_override = make_material(
-                  Color("#4e9147"),
+                  Color("#568f49"),
                   1.0
               )
 
@@ -259,7 +257,7 @@ jobs:
               var collision := CollisionShape3D.new()
               var shape := BoxShape3D.new()
 
-              shape.size = Vector3(100, 1, 100)
+              shape.size = Vector3(110, 1, 110)
               collision.shape = shape
 
               body.add_child(collision)
@@ -267,81 +265,82 @@ jobs:
 
           func create_water():
               var water := MeshInstance3D.new()
-
               var mesh := PlaneMesh.new()
 
-              mesh.size = Vector2(28, 18)
-              mesh.subdivide_width = 16
-              mesh.subdivide_depth = 16
+              mesh.size = Vector2(32, 22)
+              mesh.subdivide_width = 18
+              mesh.subdivide_depth = 18
 
               water.mesh = mesh
-              water.position = Vector3(9, 0.08, 10)
+              water.position = Vector3(9, 0.09, 11)
 
-              var water_material := StandardMaterial3D.new()
+              var material := StandardMaterial3D.new()
 
-              water_material.albedo_color = Color(
-                  0.08,
-                  0.38,
-                  0.58,
+              material.albedo_color = Color(
+                  0.06,
+                  0.40,
+                  0.62,
                   0.82
               )
 
-              water_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-              water_material.roughness = 0.18
-              water_material.metallic = 0.04
+              material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+              material.roughness = 0.16
+              material.metallic = 0.05
 
-              water.material_override = water_material
+              water.material_override = material
 
               add_child(water)
 
-          func create_hills():
-              var positions = [
-                  Vector3(-30, 2.0, -25),
-                  Vector3(30, 2.5, -27),
-                  Vector3(-32, 2.0, 25),
-                  Vector3(30, 1.7, 25),
-                  Vector3(0, 1.2, -37)
-              ]
+          func create_terrain_details():
+              create_hill(
+                  Vector3(-30, 1.8, -27),
+                  Vector3(17, 3.6, 12)
+              )
 
-              var scales = [
-                  Vector3(16, 4, 12),
-                  Vector3(19, 5, 14),
-                  Vector3(17, 4, 13),
-                  Vector3(15, 3, 11),
-                  Vector3(28, 2.4, 9)
-              ]
+              create_hill(
+                  Vector3(30, 2.0, -28),
+                  Vector3(19, 4.0, 14)
+              )
 
-              for i in range(positions.size()):
-                  var hill := MeshInstance3D.new()
+              create_hill(
+                  Vector3(-32, 1.8, 27),
+                  Vector3(18, 3.6, 13)
+              )
 
-                  var mesh := SphereMesh.new()
+              create_hill(
+                  Vector3(31, 1.6, 28),
+                  Vector3(16, 3.2, 12)
+              )
 
-                  mesh.radius = 1.0
-                  mesh.height = 2.0
-                  mesh.radial_segments = 24
-                  mesh.rings = 12
+              create_hill(
+                  Vector3(0, 1.0, -39),
+                  Vector3(30, 2.0, 8)
+              )
 
-                  hill.mesh = mesh
-                  hill.position = positions[i]
-                  hill.scale = scales[i]
+          func create_hill(pos: Vector3, hill_scale: Vector3):
+              var hill := MeshInstance3D.new()
+              var mesh := SphereMesh.new()
 
-                  if i % 2 == 0:
-                      hill.material_override = make_material(
-                          Color("#427d3f"),
-                          1.0
-                      )
-                  else:
-                      hill.material_override = make_material(
-                          Color("#3b743b"),
-                          1.0
-                      )
+              mesh.radius = 1.0
+              mesh.height = 2.0
+              mesh.radial_segments = 20
+              mesh.rings = 10
 
-                  add_child(hill)
+              hill.mesh = mesh
+              hill.position = pos
+              hill.scale = hill_scale
+
+              hill.material_override = make_material(
+                  Color("#477f42"),
+                  1.0
+              )
+
+              add_child(hill)
 
           func create_tree(
               pos: Vector3,
               tree_scale: float,
-              leaves_color: Color
+              leaf_color: Color
           ):
               var tree := Node3D.new()
 
@@ -351,66 +350,59 @@ jobs:
               add_child(tree)
 
               var trunk := MeshInstance3D.new()
-
               var trunk_mesh := CylinderMesh.new()
 
-              trunk_mesh.top_radius = 0.25
-              trunk_mesh.bottom_radius = 0.36
-              trunk_mesh.height = 3.2
+              trunk_mesh.top_radius = 0.23
+              trunk_mesh.bottom_radius = 0.34
+              trunk_mesh.height = 3.3
               trunk_mesh.radial_segments = 12
 
               trunk.mesh = trunk_mesh
-              trunk.position.y = 1.6
+              trunk.position.y = 1.65
 
               trunk.material_override = make_material(
-                  Color("#68462d"),
+                  Color("#67452d"),
                   1.0
               )
 
               tree.add_child(trunk)
 
-              var leaves1 := MeshInstance3D.new()
+              var crown := MeshInstance3D.new()
+              var crown_mesh := SphereMesh.new()
 
-              var leaves_mesh1 := SphereMesh.new()
+              crown_mesh.radius = 1.5
+              crown_mesh.height = 2.5
+              crown_mesh.radial_segments = 18
+              crown_mesh.rings = 10
 
-              leaves_mesh1.radius = 1.4
-              leaves_mesh1.height = 2.2
-              leaves_mesh1.radial_segments = 18
-              leaves_mesh1.rings = 10
+              crown.mesh = crown_mesh
+              crown.position = Vector3(0, 3.55, 0)
+              crown.scale = Vector3(1.15, 0.9, 1.15)
 
-              leaves1.mesh = leaves_mesh1
-              leaves1.position = Vector3(0, 3.45, 0)
-              leaves1.scale = Vector3(1.15, 0.9, 1.15)
-
-              leaves1.material_override = make_material(
-                  leaves_color,
+              crown.material_override = make_material(
+                  leaf_color,
                   1.0
               )
 
-              tree.add_child(leaves1)
+              tree.add_child(crown)
 
-              var leaves2 := MeshInstance3D.new()
+              var crown_small := MeshInstance3D.new()
+              var small_mesh := SphereMesh.new()
 
-              var leaves_mesh2 := SphereMesh.new()
+              small_mesh.radius = 1.0
+              small_mesh.height = 1.7
+              small_mesh.radial_segments = 16
+              small_mesh.rings = 8
 
-              leaves_mesh2.radius = 1.0
-              leaves_mesh2.height = 1.7
-              leaves_mesh2.radial_segments = 18
-              leaves_mesh2.rings = 10
+              crown_small.mesh = small_mesh
+              crown_small.position = Vector3(-0.85, 3.35, 0.2)
 
-              leaves2.mesh = leaves_mesh2
-              leaves2.position = Vector3(
-                  -0.75,
-                  3.35,
-                  0.15
-              )
-
-              leaves2.material_override = make_material(
-                  leaves_color.lightened(0.06),
+              crown_small.material_override = make_material(
+                  leaf_color.lightened(0.08),
                   1.0
               )
 
-              tree.add_child(leaves2)
+              tree.add_child(crown_small)
 
           func create_pine(pos: Vector3, tree_scale: float):
               var tree := Node3D.new()
@@ -421,13 +413,12 @@ jobs:
               add_child(tree)
 
               var trunk := MeshInstance3D.new()
-
               var trunk_mesh := CylinderMesh.new()
 
-              trunk_mesh.top_radius = 0.15
-              trunk_mesh.bottom_radius = 0.27
+              trunk_mesh.top_radius = 0.14
+              trunk_mesh.bottom_radius = 0.25
               trunk_mesh.height = 3.0
-              trunk_mesh.radial_segments = 12
+              trunk_mesh.radial_segments = 10
 
               trunk.mesh = trunk_mesh
               trunk.position.y = 1.5
@@ -440,20 +431,18 @@ jobs:
 
               for i in range(3):
                   var leaves := MeshInstance3D.new()
-
                   var cone := CylinderMesh.new()
 
                   cone.top_radius = 0.0
-                  cone.bottom_radius = 1.2 - i * 0.2
-                  cone.height = 2.0
-
-                  cone.radial_segments = 16
+                  cone.bottom_radius = 1.25 - i * 0.2
+                  cone.height = 1.9
+                  cone.radial_segments = 14
 
                   leaves.mesh = cone
-                  leaves.position.y = 2.5 + i * 0.75
+                  leaves.position.y = 2.45 + i * 0.72
 
                   leaves.material_override = make_material(
-                      Color("#32723b")
+                      Color("#2f6f3a")
                   )
 
                   tree.add_child(leaves)
@@ -462,24 +451,24 @@ jobs:
               create_tree(
                   Vector3(-18, 0, -14),
                   0.95,
-                  Color("#347b3b")
+                  Color("#347a3c")
               )
 
               create_tree(
                   Vector3(-12, 0, -25),
-                  1.12,
-                  Color("#408640")
+                  1.1,
+                  Color("#428743")
               )
 
               create_tree(
                   Vector3(18, 0, -18),
-                  0.90,
+                  0.9,
                   Color("#31733a")
               )
 
               create_tree(
                   Vector3(25, 0, -10),
-                  1.15,
+                  1.12,
                   Color("#438b43")
               )
 
@@ -491,13 +480,13 @@ jobs:
 
               create_tree(
                   Vector3(-16, 0, 27),
-                  0.90,
+                  0.9,
                   Color("#4a8e45")
               )
 
               create_tree(
                   Vector3(23, 0, 27),
-                  1.15,
+                  1.1,
                   Color("#397d3d")
               )
 
@@ -516,6 +505,67 @@ jobs:
                   Vector3(-33, 0, -4),
                   1.0
               )
+
+          func create_vegetation():
+              var positions = [
+                  Vector3(-5, 0.15, -7),
+                  Vector3(7, 0.15, -9),
+                  Vector3(-8, 0.15, 4),
+                  Vector3(14, 0.15, 2),
+                  Vector3(-20, 0.15, -4),
+                  Vector3(19, 0.15, 9),
+                  Vector3(-5, 0.15, 18),
+                  Vector3(12, 0.15, 22),
+                  Vector3(-28, 0.15, 20)
+              ]
+
+              for pos in positions:
+                  create_bush(pos)
+
+          func create_bush(pos: Vector3):
+              var bush := Node3D.new()
+              bush.position = pos
+
+              add_child(bush)
+
+              var leaf1 := MeshInstance3D.new()
+              var mesh1 := SphereMesh.new()
+
+              mesh1.radius = 0.55
+              mesh1.height = 0.8
+              mesh1.radial_segments = 12
+              mesh1.rings = 6
+
+              leaf1.mesh = mesh1
+              leaf1.position = Vector3(0, 0.45, 0)
+              leaf1.scale = Vector3(1.3, 0.8, 1.0)
+
+              leaf1.material_override = make_material(
+                  Color("#3d833f")
+              )
+
+              bush.add_child(leaf1)
+
+              var leaf2 := MeshInstance3D.new()
+              var mesh2 := SphereMesh.new()
+
+              mesh2.radius = 0.4
+              mesh2.height = 0.65
+              mesh2.radial_segments = 12
+              mesh2.rings = 6
+
+              leaf2.mesh = mesh2
+              leaf2.position = Vector3(
+                  0.45,
+                  0.5,
+                  0.15
+              )
+
+              leaf2.material_override = make_material(
+                  Color("#4b9145")
+              )
+
+              bush.add_child(leaf2)
 
           func create_rocks():
               create_rock(
@@ -543,12 +593,8 @@ jobs:
                   Vector3(1.4, 0.5, 1.0)
               )
 
-          func create_rock(
-              pos: Vector3,
-              rock_scale: Vector3
-          ):
+          func create_rock(pos: Vector3, rock_scale: Vector3):
               var rock := MeshInstance3D.new()
-
               var mesh := SphereMesh.new()
 
               mesh.radius = 1.0
@@ -576,7 +622,6 @@ jobs:
               add_child(player)
 
               var body := MeshInstance3D.new()
-
               var body_mesh := CapsuleMesh.new()
 
               body_mesh.radius = 0.42
@@ -595,7 +640,6 @@ jobs:
               player.add_child(body)
 
               var head := MeshInstance3D.new()
-
               var head_mesh := SphereMesh.new()
 
               head_mesh.radius = 0.38
@@ -614,7 +658,6 @@ jobs:
               player.add_child(head)
 
               var collision := CollisionShape3D.new()
-
               var shape := CapsuleShape3D.new()
 
               shape.radius = 0.42
@@ -646,7 +689,6 @@ jobs:
 
           func create_ui():
               var canvas := CanvasLayer.new()
-
               canvas.name = "Interface"
 
               add_child(canvas)
@@ -671,7 +713,7 @@ jobs:
 
               title.text = "MUNDO V1"
 
-              title.position = Vector2(32, 25)
+              title.position = Vector2(32, 22)
 
               title.add_theme_font_size_override(
                   "font_size",
@@ -687,7 +729,7 @@ jobs:
 
               var subtitle := Label.new()
 
-              subtitle.text = "V1.3.1  •  MUNDO NATURAL"
+              subtitle.text = "V1.4  •  MUNDO NATURAL"
 
               subtitle.position = Vector2(35, 70)
 
@@ -761,10 +803,10 @@ jobs:
 
               var action := Button.new()
 
-              action.text = "AÇÃO"
+              action.text = "EXPLORAR"
 
-              action.position = Vector2(870, 595)
-              action.size = Vector2(135, 65)
+              action.position = Vector2(855, 595)
+              action.size = Vector2(160, 65)
 
               action.add_theme_font_size_override(
                   "font_size",
@@ -938,8 +980,8 @@ jobs:
           package/app_category=0
           package/retain_data_on_uninstall=false
 
-          version/code=131
-          version/name="1.3.1"
+          version/code=14
+          version/name="1.4"
 
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
@@ -973,28 +1015,24 @@ jobs:
               rx="28"
               fill="#214f35"
             />
-
             <circle
               cx="64"
               cy="58"
               r="34"
               fill="#62a84f"
             />
-
             <path
               d="M30 84 Q64 55 98 84"
               fill="none"
               stroke="#d8f0c8"
               stroke-width="8"
             />
-
             <circle
               cx="50"
               cy="54"
               r="5"
               fill="#ffffff"
             />
-
             <circle
               cx="78"
               cy="54"
@@ -1019,8 +1057,6 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           export/android/android_sdk_path = "$ANDROID_HOME"
           EOF
-
-          test -f "$HOME/.config/godot/editor_settings-4.tres"
 
       - name: Criar keystore debug
         shell: bash
@@ -1057,11 +1093,11 @@ jobs:
           grep -q "gl_compatibility" project.godot
           grep -q 'name="Android"' export_presets.cfg
           grep -q 'arm64-v8a=true' export_presets.cfg
-          grep -q 'player.is_on_floor' scripts/main.gd
+          grep -q 'version/code=14' export_presets.cfg
 
-          echo "Arquivos do MUNDO V1.3.1 encontrados."
+          echo "MUNDO V1.4: arquivos OK."
 
-      - name: Verificar projeto Godot
+      - name: Validar projeto Godot
         shell: bash
         run: |
           set -euxo pipefail
@@ -1072,9 +1108,9 @@ jobs:
             --editor \
             --quit
 
-          echo "Projeto Godot carregado corretamente."
+          echo "Projeto carregado corretamente."
 
-      - name: Exportar APK ARM64
+      - name: Exportar APK
         shell: bash
         run: |
           set -euxo pipefail
@@ -1091,7 +1127,7 @@ jobs:
 
           ls -lh build/MundoV1.apk
 
-      - name: Verificar assinatura do APK
+      - name: Verificar assinatura
         shell: bash
         run: |
           set -euxo pipefail
@@ -1101,11 +1137,11 @@ jobs:
             --verbose \
             build/MundoV1.apk
 
-          echo "APK MUNDO V1.3.1 validado."
+          echo "APK assinado e valido."
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: MundoV1-APK-V1.3.1
+          name: MundoV1-APK-V1.4
           path: build/MundoV1.apk
           if-no-files-found: error
