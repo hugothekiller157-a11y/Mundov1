@@ -43,6 +43,8 @@ jobs:
             -o commandlinetools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
+          rm -rf cmdline-tools
+
           unzip -q commandlinetools.zip
 
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
@@ -73,24 +75,46 @@ jobs:
 
           cd /tmp
 
+          rm -f godot.zip
+
           curl -L \
+            --fail \
+            --retry 3 \
+            --retry-delay 2 \
             -o godot.zip \
             https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
 
-          unzip -q godot.zip
+          rm -rf "$HOME/godot"
 
           mkdir -p "$HOME/godot"
 
-          mv Godot_v4.3-stable_linux.x86_64 "$HOME/godot/godot"
+          unzip -q godot.zip -d "$HOME/godot"
 
-          chmod +x "$HOME/godot/godot"
+          GODOT_BINARY="$HOME/godot/Godot_v4.3-stable_linux.x86_64"
 
+          test -f "$GODOT_BINARY"
+
+          chmod +x "$GODOT_BINARY"
+
+          ln -sf "$GODOT_BINARY" "$HOME/godot/godot"
+
+          # IMPORTANTE:
+          # O PATH agora é realmente atualizado.
           echo "$HOME/godot" >> "$GITHUB_PATH"
+
+          # Também exportamos no passo atual.
+          export PATH="$HOME/godot:$PATH"
+
+          # Verificação pelo caminho absoluto.
+          "$GODOT_BINARY" --version
+
+          # Verificação pelo PATH.
+          command -v godot
 
           godot --version
 
       # ============================================================
-      # 5. EXPORT TEMPLATES
+      # 5. GODOT EXPORT TEMPLATES
       # ============================================================
       - name: Install Godot Android Export Templates
         shell: bash
@@ -103,30 +127,41 @@ jobs:
 
           cd /tmp
 
+          rm -f godot_templates.tpz
+
           curl -L \
+            --fail \
+            --retry 3 \
+            --retry-delay 2 \
             -o godot_templates.tpz \
             https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+
+          rm -rf godot_templates
 
           mkdir -p godot_templates
 
           unzip -q godot_templates.tpz -d godot_templates
 
-          DEBUG_TEMPLATE=$(find godot_templates -type f -name "android_debug.apk" | head -n 1)
-          RELEASE_TEMPLATE=$(find godot_templates -type f -name "android_release.apk" | head -n 1)
-          SOURCE_TEMPLATE=$(find godot_templates -type f -name "android_source.zip" | head -n 1)
+          DEBUG_TEMPLATE="$(find godot_templates -type f -name "android_debug.apk" | head -n 1)"
+          RELEASE_TEMPLATE="$(find godot_templates -type f -name "android_release.apk" | head -n 1)"
+          SOURCE_TEMPLATE="$(find godot_templates -type f -name "android_source.zip" | head -n 1 || true)"
 
           test -n "$DEBUG_TEMPLATE"
+          test -f "$DEBUG_TEMPLATE"
+
           test -n "$RELEASE_TEMPLATE"
+          test -f "$RELEASE_TEMPLATE"
 
           cp "$DEBUG_TEMPLATE" "$TEMPLATE_DIR/android_debug.apk"
           cp "$RELEASE_TEMPLATE" "$TEMPLATE_DIR/android_release.apk"
 
-          if [ -n "${SOURCE_TEMPLATE:-}" ]; then
+          if [ -n "${SOURCE_TEMPLATE:-}" ] && [ -f "$SOURCE_TEMPLATE" ]; then
             cp "$SOURCE_TEMPLATE" "$TEMPLATE_DIR/android_source.zip"
           fi
 
           echo "4.3.stable" > "$TEMPLATE_DIR/version.txt"
 
+          echo "Templates instalados:"
           ls -lah "$TEMPLATE_DIR"
 
       # ============================================================
@@ -152,6 +187,8 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
+
+          test -f "$HOME/.android/debug.keystore"
 
           ls -lah "$HOME/.android/debug.keystore"
 
@@ -305,7 +342,6 @@ jobs:
 
           # ==========================================================
           # MUNDO V1 - V2.7
-          # Mobile Survival / Exploration / Building
           # ==========================================================
 
           var player: CharacterBody3D
@@ -326,7 +362,7 @@ jobs:
           var joystick_active: bool = false
           var joystick_touch_id: int = -1
           var joystick_center: Vector2 = Vector2.ZERO
-          var joystick_vector: Vector2 = Vector2.ZERO
+          var joystick_vector_value: Vector2 = Vector2.ZERO
 
           var look_touch_id: int = -1
           var last_look_position: Vector2 = Vector2.ZERO
@@ -477,7 +513,6 @@ jobs:
 
               add_child(ground)
 
-              # Organic terrain patches
               for i in range(45):
                   var patch: MeshInstance3D = MeshInstance3D.new()
                   var sphere: SphereMesh = SphereMesh.new()
@@ -583,7 +618,7 @@ jobs:
                   add_child(mountain)
 
           # ==========================================================
-          # TREE
+          # TREES
           # ==========================================================
 
           func create_tree(pos: Vector3) -> void:
@@ -645,7 +680,7 @@ jobs:
                       randf_range(-58.0, 58.0)
                   )
 
-                  if p.distance_to(Vector3(0, 0, 0)) < 10.0:
+                  if p.distance_to(Vector3.ZERO) < 10.0:
                       p.x += 15.0
 
                   if p.z < -12.0 and p.x > -5.0 and p.x < 50.0:
@@ -684,7 +719,7 @@ jobs:
                   add_child(bush)
 
           # ==========================================================
-          # ROCKS + RESOURCES
+          # ROCKS / RESOURCES
           # ==========================================================
 
           func create_rocks() -> void:
@@ -732,17 +767,21 @@ jobs:
 
               if resource_type == "wood":
                   node.material_override = material(Color("#8a542e"), 0.9)
+
               elif resource_type == "stone":
                   node.material_override = material(Color("#727a78"), 0.9)
+
               else:
                   var crystal_mat: StandardMaterial3D = material(
                       Color("#74d8e9"),
                       0.3,
                       0.15
                   )
+
                   crystal_mat.emission_enabled = true
                   crystal_mat.emission = Color("#3bb8d4")
                   crystal_mat.emission_energy_multiplier = 1.8
+
                   node.material_override = crystal_mat
 
               add_child(node)
@@ -767,6 +806,7 @@ jobs:
                   mesh.height = 0.35
 
                   flower.mesh = mesh
+
                   flower.position = Vector3(
                       randf_range(-65.0, 65.0),
                       0.2,
@@ -805,6 +845,7 @@ jobs:
                       mesh.height = randf_range(2.0, 4.0)
 
                       part.mesh = mesh
+
                       part.position = Vector3(
                           randf_range(-4.0, 4.0),
                           randf_range(-1.0, 1.0),
@@ -836,6 +877,7 @@ jobs:
               fire.position = Vector3(0, 0.8, 0)
 
               var fire_mat: StandardMaterial3D = material(Color("#ff7b22"), 0.3)
+
               fire_mat.emission_enabled = true
               fire_mat.emission = Color("#ff5a16")
               fire_mat.emission_energy_multiplier = 4.0
@@ -845,6 +887,7 @@ jobs:
               camp.add_child(fire)
 
               var light: OmniLight3D = OmniLight3D.new()
+
               light.light_color = Color("#ff9b45")
               light.light_energy = 2.2
               light.omni_range = 9.0
@@ -861,13 +904,14 @@ jobs:
                   log_mesh.height = 1.7
 
                   log.mesh = log_mesh
+
                   log.rotation_degrees = Vector3(
                       0.0,
                       i * 72.0,
                       70.0
                   )
-                  log.position = Vector3(0, 0.25, 0)
 
+                  log.position = Vector3(0, 0.25, 0)
                   log.material_override = material(Color("#5d3927"))
 
                   camp.add_child(log)
@@ -935,7 +979,6 @@ jobs:
               camera.name = "Camera"
 
               camera.position = Vector3(0.0, 4.3, 7.4)
-              camera.rotation_degrees = Vector3(-16.0, 0.0, 0.0)
               camera.current = true
 
               player.add_child(camera)
@@ -954,7 +997,6 @@ jobs:
               title.text = "MUNDO V1"
               title.position = Vector2(32, 24)
               title.add_theme_font_size_override("font_size", 30)
-              title.modulate = Color("#ffffff")
               canvas.add_child(title)
 
               var version: Label = Label.new()
@@ -992,10 +1034,33 @@ jobs:
               message_label.add_theme_font_size_override("font_size", 21)
               canvas.add_child(message_label)
 
-              create_action_button(canvas, "COLETAR", Vector2(1040, 500), "collect")
-              create_action_button(canvas, "CONSTRUIR", Vector2(1040, 565), "build")
-              create_action_button(canvas, "ACAMPAMENTO", Vector2(1040, 630), "camp")
-              create_action_button(canvas, "SALVAR", Vector2(885, 630), "save")
+              create_action_button(
+                  canvas,
+                  "COLETAR",
+                  Vector2(1040, 500),
+                  "collect"
+              )
+
+              create_action_button(
+                  canvas,
+                  "CONSTRUIR",
+                  Vector2(1040, 565),
+                  "build"
+              )
+
+              create_action_button(
+                  canvas,
+                  "ACAMPAMENTO",
+                  Vector2(1040, 630),
+                  "camp"
+              )
+
+              create_action_button(
+                  canvas,
+                  "SALVAR",
+                  Vector2(885, 630),
+                  "save"
+              )
 
               joystick_base = ColorRect.new()
               joystick_base.position = Vector2(55, 500)
@@ -1009,7 +1074,12 @@ jobs:
               joystick_knob.color = Color(0.85, 0.95, 1.0, 0.55)
               canvas.add_child(joystick_knob)
 
-          func create_action_button(canvas: CanvasLayer, text_value: String, pos: Vector2, action_name: String) -> void:
+          func create_action_button(
+              canvas: CanvasLayer,
+              text_value: String,
+              pos: Vector2,
+              action_name: String
+          ) -> void:
               var button: Button = Button.new()
 
               button.text = text_value
@@ -1018,14 +1088,15 @@ jobs:
 
               button.add_theme_font_size_override("font_size", 17)
 
-              button.pressed.connect(func() -> void:
-                  action_button_pressed(action_name)
+              button.pressed.connect(
+                  func() -> void:
+                      action_button_pressed(action_name)
               )
 
               canvas.add_child(button)
 
           # ==========================================================
-          # ACTION BUTTONS
+          # ACTIONS
           # ==========================================================
 
           func action_button_pressed(action_name: String) -> void:
@@ -1063,7 +1134,9 @@ jobs:
                   if not is_instance_valid(node):
                       continue
 
-                  var distance: float = player.global_position.distance_to(node.global_position)
+                  var distance: float = player.global_position.distance_to(
+                      node.global_position
+                  )
 
                   if distance < nearest_distance:
                       nearest_distance = distance
@@ -1104,7 +1177,9 @@ jobs:
                   return
 
               if wood < 6 or stone < 4:
-                  show_message("Abrigo: precisa de 6 madeira + 4 pedra.")
+                  show_message(
+                      "Abrigo: precisa de 6 madeira + 4 pedra."
+                  )
                   return
 
               wood -= 6
@@ -1156,14 +1231,16 @@ jobs:
               show_message("ABRIGO CONSTRUÍDO!")
 
           # ==========================================================
-          # CAMP INTERACTION
+          # CAMP
           # ==========================================================
 
           func use_camp() -> void:
               if player == null:
                   return
 
-              var distance: float = player.global_position.distance_to(Vector3.ZERO)
+              var distance: float = player.global_position.distance_to(
+                  Vector3.ZERO
+              )
 
               if distance > 6.0:
                   show_message("Aproxime-se da fogueira.")
@@ -1172,7 +1249,9 @@ jobs:
               life = min(100.0, life + 15.0)
               stamina = min(100.0, stamina + 35.0)
 
-              show_message("Fogueira usada: vida e energia recuperadas.")
+              show_message(
+                  "Fogueira usada: vida e energia recuperadas."
+              )
 
           # ==========================================================
           # MOVEMENT
@@ -1182,7 +1261,7 @@ jobs:
               if player == null:
                   return
 
-              var input_vector: Vector2 = joystick_vector()
+              var input_vector: Vector2 = joystick_vector_value
 
               var keyboard: Vector2 = Input.get_vector(
                   "move_left",
@@ -1209,9 +1288,15 @@ jobs:
 
               if sprinting and stamina > 1.0 and direction.length() > 0.1:
                   speed = 7.0
-                  stamina = max(0.0, stamina - 18.0 * delta)
+                  stamina = max(
+                      0.0,
+                      stamina - 18.0 * delta
+                  )
               else:
-                  stamina = min(100.0, stamina + 9.0 * delta)
+                  stamina = min(
+                      100.0,
+                      stamina + 9.0 * delta
+                  )
 
               player.velocity.x = direction.x * speed
               player.velocity.z = direction.z * speed
@@ -1228,9 +1313,6 @@ jobs:
               update_day_night(delta)
               update_ui()
 
-          func joystick_vector() -> Vector2:
-              return joystick_vector.clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
-
           # ==========================================================
           # CAMERA
           # ==========================================================
@@ -1241,8 +1323,8 @@ jobs:
 
               var target_position: Vector3 = player.global_position + Vector3(
                   0.0,
-                  3.8,
-                  7.2
+                  4.3,
+                  7.4
               )
 
               camera.global_position = camera.global_position.lerp(
@@ -1285,7 +1367,9 @@ jobs:
               sun.light_energy = 0.22 + daylight * 1.08
 
               if environment != null and environment.environment != null:
-                  environment.environment.ambient_light_energy = 0.22 + daylight * 0.72
+                  environment.environment.ambient_light_energy = (
+                      0.22 + daylight * 0.72
+                  )
 
           # ==========================================================
           # UI UPDATE
@@ -1295,18 +1379,21 @@ jobs:
               if life_label == null:
                   return
 
-              life_label.text = "❤️ VIDA   %d / 100" % int(life)
-              stamina_label.text = "⚡ ENERGIA   %d / 100" % int(stamina)
+              life_label.text = "VIDA   %d / 100" % int(life)
+
+              stamina_label.text = (
+                  "ENERGIA   %d / 100" % int(stamina)
+              )
 
               inventory_label.text = (
-                  "🎒 MADEIRA %d   🪨 PEDRA %d   💎 CRISTAL %d"
+                  "MADEIRA %d   PEDRA %d   CRISTAL %d"
                   % [wood, stone, crystal]
               )
 
               var hour: int = int(day_time * 24.0)
 
               status_label.text = (
-                  "🌍 Dia %02d:00   •   Explore, colete e construa"
+                  "Dia %02d:00   •   Explore, colete e construa"
                   % hour
               )
 
@@ -1319,11 +1406,14 @@ jobs:
                   var touch: InputEventScreenTouch = event
 
                   if touch.pressed:
-                      if touch.position.x < 300.0 and touch.position.y > 430.0:
+                      if (
+                          touch.position.x < 300.0
+                          and touch.position.y > 430.0
+                      ):
                           joystick_active = true
                           joystick_touch_id = touch.index
                           joystick_center = Vector2(127.0, 572.0)
-                          joystick_vector = Vector2.ZERO
+                          joystick_vector_value = Vector2.ZERO
 
                       elif touch.position.x < 850.0:
                           look_touch_id = touch.index
@@ -1333,8 +1423,13 @@ jobs:
                       if touch.index == joystick_touch_id:
                           joystick_active = false
                           joystick_touch_id = -1
-                          joystick_vector = Vector2.ZERO
-                          joystick_knob.position = Vector2(95, 540)
+                          joystick_vector_value = Vector2.ZERO
+
+                          if joystick_knob != null:
+                              joystick_knob.position = Vector2(
+                                  95,
+                                  540
+                              )
 
                       if touch.index == look_touch_id:
                           look_touch_id = -1
@@ -1343,30 +1438,41 @@ jobs:
                   var drag: InputEventScreenDrag = event
 
                   if drag.index == joystick_touch_id:
-                      var offset: Vector2 = drag.position - joystick_center
+                      var offset: Vector2 = (
+                          drag.position - joystick_center
+                      )
 
                       if offset.length() > 55.0:
                           offset = offset.normalized() * 55.0
 
-                      joystick_vector = offset / 55.0
+                      joystick_vector_value = offset / 55.0
 
-                      joystick_knob.position = Vector2(
-                          127.0 + offset.x - 32.5,
-                          572.0 + offset.y - 32.5
-                      )
+                      if joystick_knob != null:
+                          joystick_knob.position = Vector2(
+                              127.0 + offset.x - 32.5,
+                              572.0 + offset.y - 32.5
+                          )
 
                   elif drag.index == look_touch_id:
-                      var look_delta: Vector2 = drag.position - last_look_position
+                      var look_delta: Vector2 = (
+                          drag.position - last_look_position
+                      )
+
                       last_look_position = drag.position
 
                       if player != null:
-                          player.rotate_y(-look_delta.x * 0.004)
+                          player.rotate_y(
+                              -look_delta.x * 0.004
+                          )
 
           # ==========================================================
           # SAVE
           # ==========================================================
 
           func save_game() -> void:
+              if player == null:
+                  return
+
               var data: Dictionary = {
                   "version": "2.7",
                   "position_x": player.position.x,
@@ -1388,10 +1494,13 @@ jobs:
               if file:
                   file.store_string(JSON.stringify(data))
                   file.close()
+
                   show_message("PROGRESSO SALVO!")
 
           func load_game() -> void:
-              if not FileAccess.file_exists("user://savegame.json"):
+              if not FileAccess.file_exists(
+                  "user://savegame.json"
+              ):
                   return
 
               var file: FileAccess = FileAccess.open(
@@ -1424,7 +1533,9 @@ jobs:
               wood = int(data.get("wood", 0))
               stone = int(data.get("stone", 0))
               crystal = int(data.get("crystal", 0))
-              shelter_built = bool(data.get("shelter_built", false))
+              shelter_built = bool(
+                  data.get("shelter_built", false)
+              )
 
               if shelter_built:
                   build_saved_shelter()
@@ -1447,7 +1558,6 @@ jobs:
                   return
 
               message_label.text = text_value
-
               game_time = 0.0
 
           # ==========================================================
@@ -1457,15 +1567,24 @@ jobs:
           func _process(delta: float) -> void:
               game_time += delta
 
-              if message_label != null and game_time > 3.5:
+              if (
+                  message_label != null
+                  and game_time > 3.5
+              ):
                   message_label.text = ""
 
-              # Pequena recuperação fora de combate
               if player != null:
-                  var camp_distance: float = player.global_position.distance_to(Vector3.ZERO)
+                  var camp_distance: float = (
+                      player.global_position.distance_to(
+                          Vector3.ZERO
+                      )
+                  )
 
                   if camp_distance < 5.0:
-                      stamina = min(100.0, stamina + delta * 2.0)
+                      stamina = min(
+                          100.0,
+                          stamina + delta * 2.0
+                      )
           EOF
 
       # ============================================================
@@ -1476,7 +1595,13 @@ jobs:
         run: |
           set -euxo pipefail
 
-          godot \
+          GODOT="$HOME/godot/godot"
+
+          test -x "$GODOT"
+
+          "$GODOT" --version
+
+          "$GODOT" \
             --headless \
             --editor \
             --path . \
@@ -1490,9 +1615,13 @@ jobs:
         run: |
           set -euxo pipefail
 
+          GODOT="$HOME/godot/godot"
+
+          test -x "$GODOT"
+
           mkdir -p build
 
-          godot \
+          "$GODOT" \
             --headless \
             --path . \
             --export-debug "Android" \
@@ -1516,7 +1645,7 @@ jobs:
             build/MundoV1-V2.7.apk
 
       # ============================================================
-      # 12. APK INFO
+      # 12. APK INFORMATION
       # ============================================================
       - name: APK Information
         shell: bash
