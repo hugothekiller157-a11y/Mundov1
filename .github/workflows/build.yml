@@ -33,16 +33,23 @@ jobs:
             -o commandlinetools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
-          unzip -q commandlinetools.zip -d "$ANDROID_HOME/cmdline-tools"
+          unzip -q commandlinetools.zip \
+            -d "$ANDROID_HOME/cmdline-tools"
 
-          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" \
-             "$ANDROID_HOME/cmdline-tools/latest"
+          mv \
+            "$ANDROID_HOME/cmdline-tools/cmdline-tools" \
+            "$ANDROID_HOME/cmdline-tools/latest"
+
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$PATH"
 
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
+
+          sdkmanager --version
 
           yes | sdkmanager --licenses >/dev/null || true
 
@@ -66,7 +73,9 @@ jobs:
 
           chmod +x Godot_v4.3-stable_linux.x86_64
 
-          sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          sudo mv \
+            Godot_v4.3-stable_linux.x86_64 \
+            /usr/local/bin/godot
 
           godot --version
 
@@ -75,7 +84,8 @@ jobs:
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
 
           cd "$RUNNER_TEMP"
 
@@ -87,17 +97,23 @@ jobs:
 
           unzip -q templates.tpz -d templates
 
-          cp -r templates/templates/* \
+          cp -r \
+            templates/templates/* \
             "$HOME/.local/share/godot/export_templates/4.3.stable/"
-
-          find "$HOME/.local/share/godot/export_templates/4.3.stable" -maxdepth 2 -type f
 
       - name: Criar projeto MUNDO V1.9
         shell: bash
         run: |
           set -euxo pipefail
 
-          rm -rf project.godot Main.tscn scripts icon.svg export_presets.cfg build
+          rm -rf \
+            project.godot \
+            Main.tscn \
+            scripts \
+            icon.svg \
+            export_presets.cfg \
+            build
+
           mkdir -p scripts build
 
           cat > project.godot <<'EOF'
@@ -842,7 +858,6 @@ jobs:
                           move_input = offset.normalized()
                       else:
                           move_input = Vector2.ZERO
-
           EOF
 
       - name: Criar export_presets.cfg
