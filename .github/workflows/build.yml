@@ -1,11 +1,11 @@
-name: MUNDO V1.4 - Visual Natural
+name: MUNDO V1.5 - CENARIO NATURAL
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -17,28 +17,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Instalar Android SDK
+      - name: Instalar dependencias Android
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p "$HOME/android-sdk/cmdline-tools"
-          cd "$RUNNER_TEMP"
-
-          wget -q \
-            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -O cmdline-tools.zip
-
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools "$HOME/android-sdk/cmdline-tools/latest"
-
-          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
-
           export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+
+          cd /tmp
+
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+
+          unzip -q cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
           yes | sdkmanager --licenses >/dev/null || true
@@ -48,70 +44,54 @@ jobs:
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-      - name: Instalar Godot 4.3
+      - name: Baixar Godot 4.3
         shell: bash
         run: |
           set -euxo pipefail
 
-          cd "$RUNNER_TEMP"
+          cd /tmp
 
-          wget -q \
-            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
             -O godot.zip
 
           unzip -q godot.zip
 
           chmod +x Godot_v4.3-stable_linux.x86_64
 
-          sudo mv \
-            Godot_v4.3-stable_linux.x86_64 \
-            /usr/local/bin/godot
+          sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
 
           godot --version
 
-      - name: Instalar templates Android
+      - name: Baixar templates de exportacao Godot
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
 
-          cd "$RUNNER_TEMP"
+          cd /tmp
 
-          wget -q \
-            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
             -O templates.tpz
 
-          unzip -q templates.tpz
+          unzip -q templates.tpz -d templates
 
-          mv \
-            templates/android_debug.apk \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          cp -r templates/templates/* \
+            "$HOME/.local/share/godot/export_templates/4.3.stable/"
 
-          mv \
-            templates/android_release.apk \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
-
-          test -f \
-            "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
-
-      - name: Criar projeto MUNDO V1.4
+      - name: Criar projeto MUNDO V1.5
         shell: bash
         run: |
           set -euxo pipefail
 
-          rm -rf project.godot
-          rm -rf Main.tscn
-          rm -rf scripts
-          rm -rf export_presets.cfg
-          rm -rf icon.svg
-          rm -rf build
+          rm -rf project.godot Main.tscn scripts export_presets.cfg icon.svg build
 
           mkdir -p scripts
           mkdir -p build
 
           cat > project.godot <<'EOF'
+          ; MUNDO V1.5
+
           config_version=5
 
           [application]
@@ -133,36 +113,40 @@ jobs:
 
           renderer/rendering_method="gl_compatibility"
           renderer/rendering_method.mobile="gl_compatibility"
+
           textures/vram_compression/import_etc2_astc=true
 
-          [physics]
+          [android]
 
-          3d/default_gravity=18.0
+          package/unique_name="com.mundov1.game"
+          package/name="MUNDO V1"
+          version/code=15
+          version/name="1.5"
 
           [input]
 
           move_forward={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":87)]
           }
 
           move_back={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":83)]
           }
 
           move_left={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":65)]
           }
 
           move_right={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":68)]
           }
 
           jump={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":32)]
           }
           EOF
@@ -176,788 +160,495 @@ jobs:
           script = ExtResource("1")
           EOF
 
+          cat > icon.svg <<'EOF'
+          <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#55b95a"/>
+                <stop offset="1" stop-color="#1f6f3b"/>
+              </linearGradient>
+            </defs>
+            <rect width="128" height="128" rx="28" fill="#173b2b"/>
+            <circle cx="64" cy="64" r="48" fill="url(#g)"/>
+            <path d="M25 72 Q45 48 64 68 Q82 88 104 55 L104 88 Q82 105 63 86 Q45 67 25 91Z" fill="#8ed16c"/>
+            <circle cx="42" cy="45" r="8" fill="#d7f5c0"/>
+            <circle cx="83" cy="42" r="6" fill="#d7f5c0"/>
+          </svg>
+          EOF
+
           cat > scripts/main.gd <<'EOF'
           extends Node3D
 
           var player: CharacterBody3D
           var camera: Camera3D
 
-          var joystick_value := Vector2.ZERO
-          var joystick_touch := -1
+          var joystick_center := Vector2.ZERO
           var joystick_active := false
+          var joystick_id := -1
+          var joystick_radius := 85.0
 
-          var yaw := 0.0
-
-          const SPEED := 5.0
-          const JUMP := 7.0
-          const GRAVITY := 18.0
+          var sun: DirectionalLight3D
+          var world_environment: WorldEnvironment
 
           func _ready():
               create_environment()
-              create_ground()
-              create_water()
-              create_terrain_details()
-              create_trees()
-              create_vegetation()
-              create_rocks()
+              create_lighting()
+              create_world()
               create_player()
               create_camera()
               create_ui()
 
-          func make_material(color: Color, roughness := 0.8):
-              var material := StandardMaterial3D.new()
-              material.albedo_color = color
-              material.roughness = roughness
-              return material
+          func mat(color: Color, roughness := 1.0, metallic := 0.0) -> StandardMaterial3D:
+              var m = StandardMaterial3D.new()
+              m.albedo_color = color
+              m.roughness = roughness
+              m.metallic = metallic
+              return m
 
           func create_environment():
-              var world := WorldEnvironment.new()
-              var environment := Environment.new()
+              world_environment = WorldEnvironment.new()
 
-              environment.background_mode = Environment.BG_COLOR
-              environment.background_color = Color("#82b8e8")
+              var env = Environment.new()
+              env.background_mode = Environment.BG_COLOR
+              env.background_color = Color("#78b9e6")
 
-              environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-              environment.ambient_light_color = Color("#dceeff")
-              environment.ambient_light_energy = 0.85
+              env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+              env.ambient_light_color = Color("#dcecff")
+              env.ambient_light_energy = 0.75
 
-              environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+              env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+              env.tonemap_exposure = 1.05
+              env.tonemap_white = 1.1
 
-              world.environment = environment
-              add_child(world)
+              world_environment.environment = env
+              add_child(world_environment)
 
-              var sun := DirectionalLight3D.new()
-
-              sun.rotation_degrees = Vector3(-52, -32, 0)
+          func create_lighting():
+              sun = DirectionalLight3D.new()
+              sun.rotation_degrees = Vector3(-48, -28, 0)
               sun.light_energy = 1.25
               sun.shadow_enabled = true
-              sun.directional_shadow_max_distance = 90.0
-
+              sun.directional_shadow_max_distance = 70.0
               add_child(sun)
 
+          func create_world():
+              create_ground()
+              create_water()
+              create_hills()
+              create_shore()
+              create_vegetation()
+              create_rocks()
+
           func create_ground():
-              var ground := MeshInstance3D.new()
-              var mesh := PlaneMesh.new()
-
-              mesh.size = Vector2(110, 110)
-              mesh.subdivide_width = 24
-              mesh.subdivide_depth = 24
-
+              var ground = MeshInstance3D.new()
+              var mesh = PlaneMesh.new()
+              mesh.size = Vector2(100, 100)
               ground.mesh = mesh
-              ground.material_override = make_material(
-                  Color("#568f49"),
-                  1.0
-              )
-
+              ground.material_override = mat(Color("#5c9145"), 1.0)
+              ground.position.y = -0.05
               add_child(ground)
 
-              var body := StaticBody3D.new()
+              var body = StaticBody3D.new()
               body.position.y = -0.5
-
-              var collision := CollisionShape3D.new()
-              var shape := BoxShape3D.new()
-
-              shape.size = Vector3(110, 1, 110)
-              collision.shape = shape
-
-              body.add_child(collision)
               add_child(body)
 
-          func create_water():
-              var water := MeshInstance3D.new()
-              var mesh := PlaneMesh.new()
+              var collision = CollisionShape3D.new()
+              var shape = BoxShape3D.new()
+              shape.size = Vector3(100, 1, 100)
+              collision.shape = shape
+              body.add_child(collision)
 
-              mesh.size = Vector2(32, 22)
-              mesh.subdivide_width = 18
-              mesh.subdivide_depth = 18
+          func create_water():
+              var water = MeshInstance3D.new()
+              var mesh = PlaneMesh.new()
+              mesh.size = Vector2(42, 25)
 
               water.mesh = mesh
-              water.position = Vector3(9, 0.09, 11)
+              water.position = Vector3(10, 0.05, -7)
 
-              var material := StandardMaterial3D.new()
-
-              material.albedo_color = Color(
-                  0.06,
-                  0.40,
-                  0.62,
-                  0.82
-              )
-
+              var material = mat(Color(0.08, 0.45, 0.62, 0.78), 0.18, 0.05)
               material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-              material.roughness = 0.16
-              material.metallic = 0.05
-
+              material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
               water.material_override = material
 
               add_child(water)
 
-          func create_terrain_details():
-              create_hill(
-                  Vector3(-30, 1.8, -27),
-                  Vector3(17, 3.6, 12)
-              )
-
-              create_hill(
-                  Vector3(30, 2.0, -28),
-                  Vector3(19, 4.0, 14)
-              )
-
-              create_hill(
-                  Vector3(-32, 1.8, 27),
-                  Vector3(18, 3.6, 13)
-              )
-
-              create_hill(
-                  Vector3(31, 1.6, 28),
-                  Vector3(16, 3.2, 12)
-              )
-
-              create_hill(
-                  Vector3(0, 1.0, -39),
-                  Vector3(30, 2.0, 8)
-              )
-
-          func create_hill(pos: Vector3, hill_scale: Vector3):
-              var hill := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
+          func create_hill(pos: Vector3, scale_value: Vector3, color: Color):
+              var hill = MeshInstance3D.new()
+              var mesh = SphereMesh.new()
 
               mesh.radius = 1.0
               mesh.height = 2.0
-              mesh.radial_segments = 20
-              mesh.rings = 10
+              mesh.radial_segments = 24
+              mesh.rings = 12
 
               hill.mesh = mesh
               hill.position = pos
-              hill.scale = hill_scale
-
-              hill.material_override = make_material(
-                  Color("#477f42"),
-                  1.0
-              )
+              hill.scale = scale_value
+              hill.material_override = mat(color, 1.0)
 
               add_child(hill)
 
-          func create_tree(
-              pos: Vector3,
-              tree_scale: float,
-              leaf_color: Color
-          ):
-              var tree := Node3D.new()
+          func create_hills():
+              create_hill(Vector3(-31, 1.0, -18), Vector3(14, 3.5, 11), Color("#4f823d"))
+              create_hill(Vector3(-24, 0.65, 9), Vector3(11, 2.2, 9), Color("#568b40"))
+              create_hill(Vector3(31, 1.0, 17), Vector3(15, 3.2, 12), Color("#4a7b3b"))
+              create_hill(Vector3(25, 0.7, -17), Vector3(10, 2.3, 8), Color("#5b9145"))
 
-              tree.position = pos
-              tree.scale = Vector3.ONE * tree_scale
+              create_hill(Vector3(-38, 0.4, 2), Vector3(8, 1.5, 7), Color("#628f47"))
+              create_hill(Vector3(37, 0.45, -5), Vector3(9, 1.7, 8), Color("#557f3e"))
 
-              add_child(tree)
+              create_hill(Vector3(-8, 0.28, 29), Vector3(9, 1.0, 6), Color("#638f49"))
+              create_hill(Vector3(12, 0.32, 31), Vector3(12, 1.2, 7), Color("#5a8843"))
 
-              var trunk := MeshInstance3D.new()
-              var trunk_mesh := CylinderMesh.new()
+          func create_shore():
+              var shore_positions = [
+                  Vector3(-9, 0.03, -17),
+                  Vector3(0, 0.03, -18),
+                  Vector3(10, 0.03, -19),
+                  Vector3(20, 0.03, -17),
+                  Vector3(28, 0.03, -13),
+                  Vector3(28, 0.03, -1),
+                  Vector3(29, 0.03, 8)
+              ]
 
-              trunk_mesh.top_radius = 0.23
+              for p in shore_positions:
+                  var sand = MeshInstance3D.new()
+                  var mesh = SphereMesh.new()
+                  mesh.radius = 1.0
+                  mesh.height = 0.35
+                  mesh.radial_segments = 20
+                  mesh.rings = 8
+
+                  sand.mesh = mesh
+                  sand.position = p
+                  sand.scale = Vector3(3.5, 0.35, 2.0)
+                  sand.material_override = mat(Color("#d8c27a"), 1.0)
+
+                  add_child(sand)
+
+          func create_tree(pos: Vector3, size := 1.0):
+              var trunk = MeshInstance3D.new()
+              var trunk_mesh = CylinderMesh.new()
+              trunk_mesh.top_radius = 0.22
               trunk_mesh.bottom_radius = 0.34
-              trunk_mesh.height = 3.3
-              trunk_mesh.radial_segments = 12
+              trunk_mesh.height = 2.8
 
               trunk.mesh = trunk_mesh
-              trunk.position.y = 1.65
+              trunk.position = pos + Vector3(0, 1.4 * size, 0)
+              trunk.scale = Vector3(size, size, size)
+              trunk.material_override = mat(Color("#70462c"), 1.0)
+              add_child(trunk)
 
-              trunk.material_override = make_material(
-                  Color("#67452d"),
-                  1.0
-              )
-
-              tree.add_child(trunk)
-
-              var crown := MeshInstance3D.new()
-              var crown_mesh := SphereMesh.new()
-
-              crown_mesh.radius = 1.5
+              var crown1 = MeshInstance3D.new()
+              var crown_mesh = SphereMesh.new()
+              crown_mesh.radius = 1.25
               crown_mesh.height = 2.5
               crown_mesh.radial_segments = 18
               crown_mesh.rings = 10
 
-              crown.mesh = crown_mesh
-              crown.position = Vector3(0, 3.55, 0)
-              crown.scale = Vector3(1.15, 0.9, 1.15)
+              crown1.mesh = crown_mesh
+              crown1.position = pos + Vector3(0, 3.0 * size, 0)
+              crown1.scale = Vector3(1.15 * size, 1.0 * size, 1.15 * size)
+              crown1.material_override = mat(Color("#2f7439"), 0.95)
+              add_child(crown1)
 
-              crown.material_override = make_material(
-                  leaf_color,
-                  1.0
-              )
+              var crown2 = MeshInstance3D.new()
+              crown2.mesh = crown_mesh
+              crown2.position = pos + Vector3(0.55 * size, 3.55 * size, 0.15 * size)
+              crown2.scale = Vector3(0.8 * size, 0.8 * size, 0.8 * size)
+              crown2.material_override = mat(Color("#3f8a43"), 0.95)
+              add_child(crown2)
 
-              tree.add_child(crown)
-
-              var crown_small := MeshInstance3D.new()
-              var small_mesh := SphereMesh.new()
-
-              small_mesh.radius = 1.0
-              small_mesh.height = 1.7
-              small_mesh.radial_segments = 16
-              small_mesh.rings = 8
-
-              crown_small.mesh = small_mesh
-              crown_small.position = Vector3(-0.85, 3.35, 0.2)
-
-              crown_small.material_override = make_material(
-                  leaf_color.lightened(0.08),
-                  1.0
-              )
-
-              tree.add_child(crown_small)
-
-          func create_pine(pos: Vector3, tree_scale: float):
-              var tree := Node3D.new()
-
-              tree.position = pos
-              tree.scale = Vector3.ONE * tree_scale
-
-              add_child(tree)
-
-              var trunk := MeshInstance3D.new()
-              var trunk_mesh := CylinderMesh.new()
-
+          func create_pine(pos: Vector3, size := 1.0):
+              var trunk = MeshInstance3D.new()
+              var trunk_mesh = CylinderMesh.new()
               trunk_mesh.top_radius = 0.14
-              trunk_mesh.bottom_radius = 0.25
-              trunk_mesh.height = 3.0
-              trunk_mesh.radial_segments = 10
+              trunk_mesh.bottom_radius = 0.22
+              trunk_mesh.height = 2.3
 
               trunk.mesh = trunk_mesh
-              trunk.position.y = 1.5
-
-              trunk.material_override = make_material(
-                  Color("#60422d")
-              )
-
-              tree.add_child(trunk)
+              trunk.position = pos + Vector3(0, 1.15 * size, 0)
+              trunk.scale = Vector3(size, size, size)
+              trunk.material_override = mat(Color("#65412b"), 1.0)
+              add_child(trunk)
 
               for i in range(3):
-                  var leaves := MeshInstance3D.new()
-                  var cone := CylinderMesh.new()
+                  var cone = MeshInstance3D.new()
+                  var cone_mesh = CylinderMesh.new()
+                  cone_mesh.top_radius = 0.0
+                  cone_mesh.bottom_radius = 1.35 - i * 0.18
+                  cone_mesh.height = 1.9
 
-                  cone.top_radius = 0.0
-                  cone.bottom_radius = 1.25 - i * 0.2
-                  cone.height = 1.9
-                  cone.radial_segments = 14
+                  cone.mesh = cone_mesh
+                  cone.position = pos + Vector3(0, (2.0 + i * 0.65) * size, 0)
+                  cone.scale = Vector3(size, size, size)
+                  cone.material_override = mat(Color("#27633a"), 1.0)
+                  add_child(cone)
 
-                  leaves.mesh = cone
-                  leaves.position.y = 2.45 + i * 0.72
+          func create_bush(pos: Vector3, size := 1.0):
+              var bush = MeshInstance3D.new()
+              var mesh = SphereMesh.new()
+              mesh.radius = 0.65
+              mesh.height = 1.15
+              mesh.radial_segments = 14
+              mesh.rings = 8
 
-                  leaves.material_override = make_material(
-                      Color("#2f6f3a")
-                  )
-
-                  tree.add_child(leaves)
-
-          func create_trees():
-              create_tree(
-                  Vector3(-18, 0, -14),
-                  0.95,
-                  Color("#347a3c")
-              )
-
-              create_tree(
-                  Vector3(-12, 0, -25),
-                  1.1,
-                  Color("#428743")
-              )
-
-              create_tree(
-                  Vector3(18, 0, -18),
-                  0.9,
-                  Color("#31733a")
-              )
-
-              create_tree(
-                  Vector3(25, 0, -10),
-                  1.12,
-                  Color("#438b43")
-              )
-
-              create_tree(
-                  Vector3(-25, 0, 13),
-                  1.05,
-                  Color("#367c3c")
-              )
-
-              create_tree(
-                  Vector3(-16, 0, 27),
-                  0.9,
-                  Color("#4a8e45")
-              )
-
-              create_tree(
-                  Vector3(23, 0, 27),
-                  1.1,
-                  Color("#397d3d")
-              )
-
-              create_tree(
-                  Vector3(32, 0, 12),
-                  0.85,
-                  Color("#478b43")
-              )
-
-              create_pine(
-                  Vector3(5, 0, -27),
-                  1.05
-              )
-
-              create_pine(
-                  Vector3(-33, 0, -4),
-                  1.0
-              )
-
-          func create_vegetation():
-              var positions = [
-                  Vector3(-5, 0.15, -7),
-                  Vector3(7, 0.15, -9),
-                  Vector3(-8, 0.15, 4),
-                  Vector3(14, 0.15, 2),
-                  Vector3(-20, 0.15, -4),
-                  Vector3(19, 0.15, 9),
-                  Vector3(-5, 0.15, 18),
-                  Vector3(12, 0.15, 22),
-                  Vector3(-28, 0.15, 20)
-              ]
-
-              for pos in positions:
-                  create_bush(pos)
-
-          func create_bush(pos: Vector3):
-              var bush := Node3D.new()
-              bush.position = pos
+              bush.mesh = mesh
+              bush.position = pos + Vector3(0, 0.55 * size, 0)
+              bush.scale = Vector3(1.3 * size, size, 1.1 * size)
+              bush.material_override = mat(Color("#3e873d"), 1.0)
 
               add_child(bush)
 
-              var leaf1 := MeshInstance3D.new()
-              var mesh1 := SphereMesh.new()
+          func create_vegetation():
+              var trees = [
+                  [Vector3(-18, 0, -4), 1.15],
+                  [Vector3(-27, 0, -2), 0.85],
+                  [Vector3(-32, 0, 10), 1.3],
+                  [Vector3(-18, 0, 15), 0.95],
+                  [Vector3(25, 0, 13), 1.2],
+                  [Vector3(33, 0, 5), 0.9],
+                  [Vector3(35, 0, 23), 1.25],
+                  [Vector3(17, 0, 24), 0.9],
+                  [Vector3(-34, 0, 23), 1.1]
+              ]
 
-              mesh1.radius = 0.55
-              mesh1.height = 0.8
-              mesh1.radial_segments = 12
-              mesh1.rings = 6
+              for data in trees:
+                  create_tree(data[0], data[1])
 
-              leaf1.mesh = mesh1
-              leaf1.position = Vector3(0, 0.45, 0)
-              leaf1.scale = Vector3(1.3, 0.8, 1.0)
+              var pines = [
+                  [Vector3(-35, 0, -16), 1.15],
+                  [Vector3(-12, 0, 25), 0.95],
+                  [Vector3(38, 0, 13), 1.15],
+                  [Vector3(31, 0, -26), 1.0],
+                  [Vector3(-30, 0, 27), 0.9]
+              ]
 
-              leaf1.material_override = make_material(
-                  Color("#3d833f")
-              )
+              for data in pines:
+                  create_pine(data[0], data[1])
 
-              bush.add_child(leaf1)
+              var bushes = [
+                  Vector3(-12, 0, -7),
+                  Vector3(-15, 0, 7),
+                  Vector3(-22, 0, 19),
+                  Vector3(17, 0, 12),
+                  Vector3(22, 0, 18),
+                  Vector3(31, 0, -8),
+                  Vector3(14, 0, 27),
+                  Vector3(-31, 0, 15),
+                  Vector3(5, 0, 26)
+              ]
 
-              var leaf2 := MeshInstance3D.new()
-              var mesh2 := SphereMesh.new()
+              for p in bushes:
+                  create_bush(p, 0.8)
 
-              mesh2.radius = 0.4
-              mesh2.height = 0.65
-              mesh2.radial_segments = 12
-              mesh2.rings = 6
-
-              leaf2.mesh = mesh2
-              leaf2.position = Vector3(
-                  0.45,
-                  0.5,
-                  0.15
-              )
-
-              leaf2.material_override = make_material(
-                  Color("#4b9145")
-              )
-
-              bush.add_child(leaf2)
-
-          func create_rocks():
-              create_rock(
-                  Vector3(-8, 0.45, -8),
-                  Vector3(1.5, 0.8, 1.0)
-              )
-
-              create_rock(
-                  Vector3(14, 0.4, -5),
-                  Vector3(1.0, 0.6, 1.3)
-              )
-
-              create_rock(
-                  Vector3(-25, 0.5, 5),
-                  Vector3(1.8, 0.9, 1.2)
-              )
-
-              create_rock(
-                  Vector3(28, 0.4, 5),
-                  Vector3(1.2, 0.7, 1.0)
-              )
-
-              create_rock(
-                  Vector3(2, 0.35, 20),
-                  Vector3(1.4, 0.5, 1.0)
-              )
-
-          func create_rock(pos: Vector3, rock_scale: Vector3):
-              var rock := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
+          func create_rock(pos: Vector3, scale_value: Vector3):
+              var rock = MeshInstance3D.new()
+              var mesh = SphereMesh.new()
 
               mesh.radius = 1.0
-              mesh.height = 1.5
+              mesh.height = 1.6
               mesh.radial_segments = 12
-              mesh.rings = 8
+              mesh.rings = 6
 
               rock.mesh = mesh
               rock.position = pos
-              rock.scale = rock_scale
-
-              rock.material_override = make_material(
-                  Color("#77756c"),
-                  1.0
-              )
+              rock.scale = scale_value
+              rock.rotation_degrees = Vector3(0, randf_range(0, 360), randf_range(-8, 8))
+              rock.material_override = mat(Color("#777b72"), 1.0)
 
               add_child(rock)
 
+          func create_rocks():
+              var rocks = [
+                  [Vector3(-8, 0.35, 10), Vector3(1.4, 0.7, 1.0)],
+                  [Vector3(-5, 0.25, 12), Vector3(0.7, 0.45, 0.6)],
+                  [Vector3(19, 0.35, 5), Vector3(1.2, 0.75, 0.9)],
+                  [Vector3(22, 0.25, 7), Vector3(0.65, 0.4, 0.5)],
+                  [Vector3(-25, 0.4, -12), Vector3(1.5, 0.8, 1.1)],
+                  [Vector3(29, 0.35, -12), Vector3(1.0, 0.6, 0.8)],
+                  [Vector3(7, 0.3, 18), Vector3(1.3, 0.65, 1.0)]
+              ]
+
+              for data in rocks:
+                  create_rock(data[0], data[1])
+
           func create_player():
               player = CharacterBody3D.new()
-
               player.name = "Player"
-              player.position = Vector3(0, 1.2, 6)
-
+              player.position = Vector3(0, 1.3, 8)
               add_child(player)
 
-              var body := MeshInstance3D.new()
-              var body_mesh := CapsuleMesh.new()
+              var collision = CollisionShape3D.new()
+              var capsule = CapsuleShape3D.new()
+              capsule.radius = 0.45
+              capsule.height = 1.8
+              collision.shape = capsule
+              collision.position.y = 0.9
+              player.add_child(collision)
 
-              body_mesh.radius = 0.42
+              var body = MeshInstance3D.new()
+              var body_mesh = CapsuleMesh.new()
+              body_mesh.radius = 0.45
               body_mesh.height = 1.8
-              body_mesh.radial_segments = 20
-              body_mesh.rings = 8
 
               body.mesh = body_mesh
               body.position.y = 0.9
-
-              body.material_override = make_material(
-                  Color("#e0a83f"),
-                  0.75
-              )
-
+              body.material_override = mat(Color("#315f9e"), 0.85)
               player.add_child(body)
 
-              var head := MeshInstance3D.new()
-              var head_mesh := SphereMesh.new()
-
+              var head = MeshInstance3D.new()
+              var head_mesh = SphereMesh.new()
               head_mesh.radius = 0.38
               head_mesh.height = 0.76
-              head_mesh.radial_segments = 20
-              head_mesh.rings = 12
 
               head.mesh = head_mesh
-              head.position = Vector3(0, 2.05, 0)
-
-              head.material_override = make_material(
-                  Color("#efc49d"),
-                  0.75
-              )
-
+              head.position = Vector3(0, 2.0, 0)
+              head.material_override = mat(Color("#d8a27b"), 0.9)
               player.add_child(head)
-
-              var collision := CollisionShape3D.new()
-              var shape := CapsuleShape3D.new()
-
-              shape.radius = 0.42
-              shape.height = 1.8
-
-              collision.shape = shape
-              collision.position.y = 0.9
-
-              player.add_child(collision)
 
           func create_camera():
               camera = Camera3D.new()
-
-              camera.name = "MainCamera"
+              camera.position = Vector3(0, 4.0, 7.5)
+              camera.rotation_degrees = Vector3(-16, 180, 0)
               camera.current = true
-
               add_child(camera)
-
-              camera.position = Vector3(
-                  0,
-                  4.5,
-                  12
-              )
-
-              camera.look_at(
-                  Vector3(0, 1, 6),
-                  Vector3.UP
-              )
-
-          func create_ui():
-              var canvas := CanvasLayer.new()
-              canvas.name = "Interface"
-
-              add_child(canvas)
-
-              var top := ColorRect.new()
-
-              top.position = Vector2(0, 0)
-              top.size = Vector2(1280, 105)
-
-              top.color = Color(
-                  0.02,
-                  0.05,
-                  0.08,
-                  0.35
-              )
-
-              top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-              canvas.add_child(top)
-
-              var title := Label.new()
-
-              title.text = "MUNDO V1"
-
-              title.position = Vector2(32, 22)
-
-              title.add_theme_font_size_override(
-                  "font_size",
-                  36
-              )
-
-              title.add_theme_color_override(
-                  "font_color",
-                  Color.WHITE
-              )
-
-              canvas.add_child(title)
-
-              var subtitle := Label.new()
-
-              subtitle.text = "V1.4  •  MUNDO NATURAL"
-
-              subtitle.position = Vector2(35, 70)
-
-              subtitle.add_theme_font_size_override(
-                  "font_size",
-                  16
-              )
-
-              subtitle.add_theme_color_override(
-                  "font_color",
-                  Color("#d7f0ff")
-              )
-
-              canvas.add_child(subtitle)
-
-              var joystick := ColorRect.new()
-
-              joystick.name = "Joystick"
-
-              joystick.position = Vector2(45, 505)
-              joystick.size = Vector2(150, 150)
-
-              joystick.color = Color(
-                  0.02,
-                  0.05,
-                  0.08,
-                  0.38
-              )
-
-              joystick.mouse_filter = Control.MOUSE_FILTER_STOP
-
-              canvas.add_child(joystick)
-
-              joystick.gui_input.connect(
-                  _joystick_input.bind(joystick)
-              )
-
-              var knob := ColorRect.new()
-
-              knob.name = "Knob"
-
-              knob.position = Vector2(52, 52)
-              knob.size = Vector2(46, 46)
-
-              knob.color = Color(
-                  1,
-                  1,
-                  1,
-                  0.6
-              )
-
-              knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-              joystick.add_child(knob)
-
-              var jump := Button.new()
-
-              jump.text = "PULAR"
-
-              jump.position = Vector2(1040, 560)
-              jump.size = Vector2(160, 75)
-
-              jump.add_theme_font_size_override(
-                  "font_size",
-                  20
-              )
-
-              jump.pressed.connect(_jump)
-
-              canvas.add_child(jump)
-
-              var action := Button.new()
-
-              action.text = "EXPLORAR"
-
-              action.position = Vector2(855, 595)
-              action.size = Vector2(160, 65)
-
-              action.add_theme_font_size_override(
-                  "font_size",
-                  18
-              )
-
-              canvas.add_child(action)
-
-          func _joystick_input(
-              event: InputEvent,
-              joystick: Control
-          ):
-              var knob := joystick.get_node(
-                  "Knob"
-              ) as Control
-
-              if event is InputEventScreenTouch:
-                  if event.pressed:
-                      joystick_active = true
-                      joystick_touch = event.index
-
-                      update_joystick(
-                          event.position,
-                          joystick,
-                          knob
-                      )
-
-                  elif event.index == joystick_touch:
-                      joystick_active = false
-                      joystick_touch = -1
-                      joystick_value = Vector2.ZERO
-
-                      knob.position = Vector2(
-                          52,
-                          52
-                      )
-
-              elif event is InputEventScreenDrag:
-                  if event.index == joystick_touch:
-                      update_joystick(
-                          event.position,
-                          joystick,
-                          knob
-                      )
-
-          func update_joystick(
-              position: Vector2,
-              joystick: Control,
-              knob: Control
-          ):
-              var center := Vector2(75, 75)
-
-              var local_position := (
-                  position -
-                  joystick.global_position
-              )
-
-              var offset := local_position - center
-
-              if offset.length() > 55.0:
-                  offset = offset.normalized() * 55.0
-
-              joystick_value = offset / 55.0
-
-              knob.position = (
-                  center +
-                  offset -
-                  Vector2(23, 23)
-              )
-
-          func _jump():
-              if player != null and player.is_on_floor():
-                  player.velocity.y = JUMP
 
           func _physics_process(delta):
               if player == null:
                   return
 
-              var input_vector := Vector2(
-                  Input.get_axis(
-                      "move_left",
-                      "move_right"
-                  ),
-                  Input.get_axis(
-                      "move_forward",
-                      "move_back"
-                  )
-              )
+              var direction = Vector3.ZERO
 
-              if joystick_value.length() > 0.05:
-                  input_vector = joystick_value
+              if Input.is_action_pressed("move_forward"):
+                  direction.z -= 1
 
-              var direction := Vector3(
-                  input_vector.x,
-                  0,
-                  input_vector.y
-              )
+              if Input.is_action_pressed("move_back"):
+                  direction.z += 1
 
-              if direction.length() > 1.0:
+              if Input.is_action_pressed("move_left"):
+                  direction.x -= 1
+
+              if Input.is_action_pressed("move_right"):
+                  direction.x += 1
+
+              if joystick_active:
+                  var touch_pos = get_viewport().get_mouse_position()
+                  var offset = touch_pos - joystick_center
+
+                  if offset.length() > 10:
+                      var power = min(offset.length() / joystick_radius, 1.0)
+                      direction = Vector3(
+                          offset.x / joystick_radius,
+                          0,
+                          offset.y / joystick_radius
+                      ) * power
+
+              if direction.length() > 1:
                   direction = direction.normalized()
 
-              player.velocity.x = direction.x * SPEED
-              player.velocity.z = direction.z * SPEED
+              var speed = 5.0
+
+              player.velocity.x = direction.x * speed
+              player.velocity.z = direction.z * speed
 
               if not player.is_on_floor():
-                  player.velocity.y -= GRAVITY * delta
+                  player.velocity.y -= 14.0 * delta
               else:
                   if Input.is_action_just_pressed("jump"):
-                      player.velocity.y = JUMP
+                      player.velocity.y = 6.0
 
               player.move_and_slide()
 
-              update_camera(delta)
+              if camera:
+                  var target = player.global_position + Vector3(0, 1.0, 0)
+                  var desired = player.global_position + Vector3(0, 4.0, 7.5)
 
-          func update_camera(delta):
-              if camera == null or player == null:
-                  return
-
-              var target := (
-                  player.global_position +
-                  Vector3(0, 1.2, 0)
-              )
-
-              var desired := (
-                  target +
-                  Vector3(
-                      sin(deg_to_rad(yaw)) * 9.0,
-                      4.2,
-                      cos(deg_to_rad(yaw)) * 9.0
-                  )
-              )
-
-              camera.global_position = (
-                  camera.global_position.lerp(
+                  camera.global_position = camera.global_position.lerp(
                       desired,
-                      5.0 * delta
+                      min(delta * 5.0, 1.0)
                   )
-              )
 
-              camera.look_at(
-                  target,
-                  Vector3.UP
-              )
+                  camera.look_at(target)
 
-          func _unhandled_input(event):
-              if event is InputEventMouseMotion:
-                  if Input.is_mouse_button_pressed(
-                      MOUSE_BUTTON_LEFT
-                  ):
-                      yaw -= event.relative.x * 0.25
+          func create_ui():
+              var canvas = CanvasLayer.new()
+              add_child(canvas)
+
+              var title = Label.new()
+              title.text = "MUNDO V1"
+              title.position = Vector2(30, 24)
+              title.add_theme_font_size_override("font_size", 34)
+              title.add_theme_color_override("font_color", Color.WHITE)
+              canvas.add_child(title)
+
+              var subtitle = Label.new()
+              subtitle.text = "V1.5 • MUNDO NATURAL"
+              subtitle.position = Vector2(32, 65)
+              subtitle.add_theme_font_size_override("font_size", 18)
+              subtitle.add_theme_color_override("font_color", Color("#e8f5df"))
+              canvas.add_child(subtitle)
+
+              var status = Label.new()
+              status.text = "EXPLORA • DESCUBRA • CONSTRUA"
+              status.position = Vector2(32, 92)
+              status.add_theme_font_size_override("font_size", 14)
+              status.add_theme_color_override("font_color", Color("#f4f4f4"))
+              canvas.add_child(status)
+
+              var joystick = ColorRect.new()
+              joystick.position = Vector2(55, 565)
+              joystick.size = Vector2(150, 150)
+              joystick.color = Color(1, 1, 1, 0.10)
+              canvas.add_child(joystick)
+
+              var joystick_label = Label.new()
+              joystick_label.text = "◉"
+              joystick_label.position = Vector2(105, 605)
+              joystick_label.add_theme_font_size_override("font_size", 50)
+              joystick_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+              canvas.add_child(joystick_label)
+
+              var jump = Button.new()
+              jump.text = "PULAR"
+              jump.position = Vector2(1040, 560)
+              jump.size = Vector2(150, 60)
+              jump.add_theme_font_size_override("font_size", 18)
+              jump.pressed.connect(_on_jump)
+              canvas.add_child(jump)
+
+              var action = Button.new()
+              action.text = "EXPLORAR"
+              action.position = Vector2(1040, 630)
+              action.size = Vector2(150, 55)
+              action.add_theme_font_size_override("font_size", 17)
+              canvas.add_child(action)
+
+          func _on_jump():
+              if player and player.is_on_floor():
+                  player.velocity.y = 6.0
+
+          func _input(event):
+              if event is InputEventScreenTouch:
+                  if event.pressed:
+                      if event.position.x < 280 and event.position.y > 500:
+                          joystick_active = true
+                          joystick_id = event.index
+                          joystick_center = event.position
+                  elif event.index == joystick_id:
+                      joystick_active = false
+                      joystick_id = -1
+
+              elif event is InputEventScreenDrag:
+                  if event.index == joystick_id:
+                      joystick_center = event.position
           EOF
+
+      - name: Criar export_presets.cfg
+        shell: bash
+        run: |
+          set -euxo pipefail
 
           cat > export_presets.cfg <<'EOF'
           [preset.0]
@@ -965,161 +656,94 @@ jobs:
           name="Android"
           platform="Android"
           runnable=true
-          advanced_options=false
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/MundoV1.apk"
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          encrypt_pck=false
+          encrypt_directory=false
 
           [preset.0.options]
-
-          custom_template/debug=""
-          custom_template/release=""
-
-          gradle_build/use_gradle_build=false
 
           package/unique_name="com.mundov1.game"
           package/name="MUNDO V1"
           package/signed=true
-          package/app_category=0
-          package/retain_data_on_uninstall=false
 
-          version/code=14
-          version/name="1.4"
+          version/code=15
+          version/name="1.5"
 
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
 
-          permissions/internet=true
-          permissions/access_network_state=true
+          package/app_category=0
+          package/retain_data_on_uninstall=false
+
+          launcher_icons/main_192x192=""
+          launcher_icons/adaptive_foreground_432x432=""
+          launcher_icons/adaptive_background_432x432=""
 
           screen/immersive_mode=true
           screen/orientation=1
 
-          graphics/driver/driver_name="opengl3"
-          graphics/driver/driver_name.mobile="opengl3"
+          permissions/internet=true
 
-          [preset.0.options.splash]
+          input_devices/pointing/emulate_touch_from_mouse=true
+          input_devices/pointing/emulate_mouse_from_touch=true
 
-          image=""
-          bg_color=Color(0.08, 0.12, 0.18, 1)
-          scale=1
-          show_image=true
-          fullsize=false
-          use_filter=true
+          render/rendering_method="gl_compatibility"
+          render/rendering_method.mobile="gl_compatibility"
+
+          texture_format/etc2=true
+          texture_format/etc2_astc=true
           EOF
 
-          cat > icon.svg <<'EOF'
-          <svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
-            <rect
-              width="128"
-              height="128"
-              rx="28"
-              fill="#214f35"
-            />
-            <circle
-              cx="64"
-              cy="58"
-              r="34"
-              fill="#62a84f"
-            />
-            <path
-              d="M30 84 Q64 55 98 84"
-              fill="none"
-              stroke="#d8f0c8"
-              stroke-width="8"
-            />
-            <circle
-              cx="50"
-              cy="54"
-              r="5"
-              fill="#ffffff"
-            />
-            <circle
-              cx="78"
-              cy="54"
-              r="5"
-              fill="#ffffff"
-            />
-          </svg>
-          EOF
-
-      - name: Configurar Godot Android
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          mkdir -p "$HOME/.config/godot"
-
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
-          [gd_resource format=3]
-
-          [resource]
-
-          export/android/java_sdk_path = "$JAVA_HOME"
-          export/android/android_sdk_path = "$ANDROID_HOME"
-          EOF
-
-      - name: Criar keystore debug
+      - name: Criar chave de assinatura
         shell: bash
         run: |
           set -euxo pipefail
 
           mkdir -p "$HOME/.android"
 
-          keytool \
-            -genkeypair \
+          keytool -genkeypair \
             -keystore "$HOME/.android/debug.keystore" \
             -storepass android \
-            -keypass android \
             -alias androiddebugkey \
+            -keypass android \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US" \
-            -noprompt || true
-
-          test -f "$HOME/.android/debug.keystore"
-
-      - name: Validar arquivos
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          test -f project.godot
-          test -f Main.tscn
-          test -f scripts/main.gd
-          test -f export_presets.cfg
-          test -f icon.svg
-
-          grep -q "gl_compatibility" project.godot
-          grep -q 'name="Android"' export_presets.cfg
-          grep -q 'arm64-v8a=true' export_presets.cfg
-          grep -q 'version/code=14' export_presets.cfg
-
-          echo "MUNDO V1.4: arquivos OK."
+            2>/dev/null || true
 
       - name: Validar projeto Godot
         shell: bash
         run: |
           set -euxo pipefail
 
-          godot \
-            --headless \
-            --path "$GITHUB_WORKSPACE" \
-            --editor \
-            --quit
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
-          echo "Projeto carregado corretamente."
+          godot --headless --editor --quit
 
-      - name: Exportar APK
+      - name: Exportar APK Android
         shell: bash
         run: |
           set -euxo pipefail
+
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
           mkdir -p build
 
           godot \
             --headless \
-            --path "$GITHUB_WORKSPACE" \
+            --editor \
             --export-debug "Android" \
             build/MundoV1.apk
 
@@ -1127,21 +751,20 @@ jobs:
 
           ls -lh build/MundoV1.apk
 
-      - name: Verificar assinatura
+      - name: Verificar APK
         shell: bash
         run: |
           set -euxo pipefail
 
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
-            verify \
+          export ANDROID_HOME="$HOME/android-sdk"
+
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify \
             --verbose \
             build/MundoV1.apk
-
-          echo "APK assinado e valido."
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: MundoV1-APK-V1.4
+          name: MUNDO-V1.5-APK
           path: build/MundoV1.apk
           if-no-files-found: error
