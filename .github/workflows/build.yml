@@ -1,4 +1,4 @@
-name: MUNDO V1 - V2.3 AAA MOBILE ESTILIZADO
+name: MUNDO V1 - V2.4 AAA MOBILE
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Instalar Android SDK
         shell: bash
@@ -27,26 +27,14 @@ jobs:
 
           mkdir -p "$ANDROID_HOME/cmdline-tools"
 
-          cd /tmp
-
-          rm -f commandlinetools.zip
-
-          curl -L \
-            -o commandlinetools.zip \
+          curl -L -o commandlinetools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
-          rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+          unzip -q commandlinetools.zip -d "$ANDROID_HOME/cmdline-tools"
 
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
-
-          unzip -q commandlinetools.zip \
-            -d "$ANDROID_HOME/cmdline-tools/latest"
-
-          if [ -d "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools" ]; then
-            mv "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools/"* \
-              "$ANDROID_HOME/cmdline-tools/latest/"
-            rm -rf "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools"
-          fi
+          cp -r "$ANDROID_HOME/cmdline-tools/cmdline-tools/"* \
+            "$ANDROID_HOME/cmdline-tools/latest/"
 
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
@@ -57,28 +45,17 @@ jobs:
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-
-      - name: Baixar Godot 4.3
+      - name: Instalar Godot 4.3
         shell: bash
         run: |
           set -euxo pipefail
 
-          cd /tmp
-
-          rm -rf godot
-          mkdir -p godot
-
-          curl -L \
-            -o godot.zip \
+          curl -L -o godot.zip \
             https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
 
-          unzip -q godot.zip -d godot
+          unzip -q godot.zip
 
-          GODOT_BIN="$(find /tmp/godot -type f -name 'Godot_v4.3-stable_linux.x86_64' | head -n 1)"
+          GODOT_BIN="$(find . -maxdepth 2 -type f -name 'Godot_v4.3-stable_linux.x86_64' | head -n 1)"
 
           test -n "$GODOT_BIN"
 
@@ -98,82 +75,58 @@ jobs:
           rm -rf "$TEMPLATE_DIR"
           mkdir -p "$TEMPLATE_DIR"
 
-          cd /tmp
-
-          rm -f templates.tpz
-          rm -rf godot_templates
-
-          mkdir -p godot_templates
-
-          curl -L \
-            -o templates.tpz \
+          curl -L -o templates.tpz \
             https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
 
-          unzip -q templates.tpz -d godot_templates
+          rm -rf godot_templates
+          mkdir -p godot_templates
 
-          echo "Conteúdo baixado:"
-          find godot_templates -type f -maxdepth 5 -print
+          unzip -q templates.tpz -d godot_templates
 
           DEBUG_TEMPLATE="$(find godot_templates -type f -name 'android_debug.apk' | head -n 1)"
           RELEASE_TEMPLATE="$(find godot_templates -type f -name 'android_release.apk' | head -n 1)"
           SOURCE_TEMPLATE="$(find godot_templates -type f -name 'android_source.zip' | head -n 1)"
+          VERSION_FILE="$(find godot_templates -type f -name 'version.txt' | head -n 1)"
 
           test -n "$DEBUG_TEMPLATE"
           test -n "$RELEASE_TEMPLATE"
 
-          cp "$DEBUG_TEMPLATE" \
-            "$TEMPLATE_DIR/android_debug.apk"
-
-          cp "$RELEASE_TEMPLATE" \
-            "$TEMPLATE_DIR/android_release.apk"
+          cp "$DEBUG_TEMPLATE" "$TEMPLATE_DIR/android_debug.apk"
+          cp "$RELEASE_TEMPLATE" "$TEMPLATE_DIR/android_release.apk"
 
           if [ -n "$SOURCE_TEMPLATE" ]; then
-            cp "$SOURCE_TEMPLATE" \
-              "$TEMPLATE_DIR/android_source.zip"
+            cp "$SOURCE_TEMPLATE" "$TEMPLATE_DIR/android_source.zip"
           fi
 
-          echo "Templates instalados:"
-          ls -lh "$TEMPLATE_DIR"
-
-          test -f "$TEMPLATE_DIR/android_debug.apk"
-          test -f "$TEMPLATE_DIR/android_release.apk"
-
-      - name: Verificar templates
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.3.stable"
-
-          echo "Verificando:"
-          ls -lh "$TEMPLATE_DIR"
+          if [ -n "$VERSION_FILE" ]; then
+            cp "$VERSION_FILE" "$TEMPLATE_DIR/version.txt"
+          else
+            echo "4.3.stable" > "$TEMPLATE_DIR/version.txt"
+          fi
 
           test -s "$TEMPLATE_DIR/android_debug.apk"
           test -s "$TEMPLATE_DIR/android_release.apk"
 
-          echo "Templates Android OK"
-
-      - name: Criar projeto MUNDO V1 V2.3
+      - name: Criar projeto MUNDO V1 V2.4
         shell: bash
         run: |
           set -euxo pipefail
 
-          rm -rf build
-          mkdir -p build
           mkdir -p scripts
+          mkdir -p build
 
           cat > project.godot <<'EOF'
-          ; MUNDO V1 - V2.3 AAA MOBILE ESTILIZADO
+          ; MUNDO V1 - V2.4 AAA MOBILE
+          ; Godot 4.3
 
           config_version=5
 
           [application]
 
           config/name="MUNDO V1"
-          config/description="MUNDO V1 - AAA Mobile Estilizado"
           run/main_scene="res://Main.tscn"
           config/features=PackedStringArray("4.3", "GL Compatibility")
-          boot_splash/bg_color=Color(0.035, 0.055, 0.075, 1)
+          boot_splash/bg_color=Color(0.06, 0.10, 0.14, 1)
           boot_splash/show_image=false
 
           [display]
@@ -190,62 +143,38 @@ jobs:
           renderer/rendering_method.mobile="gl_compatibility"
           textures/default_filters/use_nearest_mipmap_filter=false
           textures/vram_compression/import_etc2_astc=true
-          environment/defaults/default_clear_color=Color(0.12, 0.20, 0.27, 1)
-
-          [physics]
-
-          3d/default_gravity=18.0
 
           [input]
 
-          move_forward={
-          "deadzone": 0.5,
-          "events": [Object(InputEventKey,"physical_keycode":87)]
-          }
-
-          move_back={
-          "deadzone": 0.5,
-          "events": [Object(InputEventKey,"physical_keycode":83)]
-          }
-
           move_left={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":65)]
           }
 
           move_right={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":68)]
           }
 
+          move_forward={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":87)]
+          }
+
+          move_back={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":83)]
+          }
+
           jump={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":32)]
           }
 
           sprint={
-          "deadzone": 0.5,
+          "deadzone": 0.2,
           "events": [Object(InputEventKey,"physical_keycode":4194325)]
           }
-
-          [application/android]
-
-          package/unique_name="com.mundov1.game"
-          package/name="MUNDO V1"
-          version/code=23
-          version/name="2.3"
-
-          [display/window]
-
-          size/viewport_width=1280
-          size/viewport_height=720
-          size/window_width_override=1280
-          size/window_height_override=720
-          stretch/mode="canvas_items"
-
-          [audio]
-
-          driver/enable_input=false
           EOF
 
           cat > Main.tscn <<'EOF'
@@ -260,52 +189,837 @@ jobs:
           cat > icon.svg <<'EOF'
           <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
             <defs>
-              <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#5DB7E8"/>
-                <stop offset="1" stop-color="#1D5C72"/>
-              </linearGradient>
-              <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#78C95C"/>
-                <stop offset="1" stop-color="#28683A"/>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#75d7ff"/>
+                <stop offset="1" stop-color="#2476c9"/>
               </linearGradient>
             </defs>
-            <rect width="256" height="256" rx="54" fill="url(#bg)"/>
-            <circle cx="190" cy="64" r="31" fill="#FFE9A9"/>
-            <path d="M0 185 C60 145 95 170 145 150 C190 132 218 145 256 120 L256 256 L0 256 Z" fill="#315F42"/>
-            <path d="M0 205 C65 176 111 194 163 172 C205 155 229 164 256 149 L256 256 L0 256 Z" fill="#4D8750"/>
-            <rect x="116" y="109" width="18" height="78" rx="8" fill="#714A2F"/>
-            <circle cx="125" cy="91" r="43" fill="url(#leaf)"/>
-            <circle cx="93" cy="107" r="29" fill="#4D9A47"/>
-            <circle cx="157" cy="107" r="30" fill="#4C9444"/>
-            <circle cx="125" cy="65" r="32" fill="#74C456"/>
+            <rect x="12" y="12" width="232" height="232" rx="58" fill="url(#g)"/>
+            <path d="M52 156 Q88 92 128 132 Q168 172 204 104 L204 190 Q128 218 52 190Z" fill="#4d9b55"/>
+            <path d="M52 156 Q92 116 128 148 Q164 180 204 130 L204 158 Q164 202 128 174 Q92 146 52 184Z" fill="#75c66b"/>
+            <circle cx="180" cy="70" r="20" fill="#fff4c4"/>
           </svg>
           EOF
 
-          # Recupera o script existente se ele já estiver no repositório.
-          # Se não existir, o workflow falha claramente em vez de gerar
-          # uma versão visual incompleta.
-          test -f scripts/main.gd
+          cat > scripts/main.gd <<'EOF'
+          extends Node3D
+
+          const WORLD_SIZE: float = 100.0
+          const WATER_LEVEL: float = -1.4
+
+          var player: CharacterBody3D
+          var camera: Camera3D
+          var camera_pivot: Node3D
+
+          var velocity_y: float = 0.0
+          var stamina: float = 100.0
+          var life: float = 100.0
+          var collected: int = 0
+          var sprinting: bool = false
+          var day_time: float = 0.0
+
+          var status_label: Label
+          var stamina_bar: ProgressBar
+          var life_bar: ProgressBar
+          var inventory_label: Label
+
+          var move_touch: Vector2 = Vector2.ZERO
+          var look_touch: Vector2 = Vector2.ZERO
+          var touch_move_active: bool = false
+          var touch_look_active: bool = false
+
+          func _ready() -> void:
+              _setup_world()
+              _create_player()
+              _create_camera()
+              _create_ui()
+
+          func _process(delta: float) -> void:
+              day_time += delta
+              _animate_world(delta)
+              _update_ui()
+
+          func _physics_process(delta: float) -> void:
+              if player == null:
+                  return
+
+              var input_dir: Vector2 = Input.get_vector(
+                  "move_left",
+                  "move_right",
+                  "move_forward",
+                  "move_back"
+              )
+
+              if touch_move_active:
+                  input_dir = move_touch
+
+              var direction: Vector3 = Vector3(input_dir.x, 0.0, input_dir.y)
+
+              if direction.length() > 1.0:
+                  direction = direction.normalized()
+
+              sprinting = Input.is_action_pressed("sprint")
+
+              var speed: float = 4.2
+
+              if sprinting and stamina > 1.0 and direction.length() > 0.05:
+                  speed = 7.0
+                  stamina = max(0.0, stamina - delta * 13.0)
+              else:
+                  stamina = min(100.0, stamina + delta * 7.0)
+
+              var target: Vector3 = direction * speed
+
+              player.velocity.x = lerp(player.velocity.x, target.x, delta * 8.0)
+              player.velocity.z = lerp(player.velocity.z, target.z, delta * 8.0)
+
+              if not player.is_on_floor():
+                  velocity_y -= 18.0 * delta
+              else:
+                  velocity_y = -0.5
+
+              if Input.is_action_just_pressed("jump") and player.is_on_floor():
+                  velocity_y = 7.2
+
+              player.velocity.y = velocity_y
+              player.move_and_slide()
+
+              player.position.x = clamp(player.position.x, -WORLD_SIZE * 0.48, WORLD_SIZE * 0.48)
+              player.position.z = clamp(player.position.z, -WORLD_SIZE * 0.48, WORLD_SIZE * 0.48)
+
+          func _setup_world() -> void:
+              var world_environment: WorldEnvironment = WorldEnvironment.new()
+              var environment: Environment = Environment.new()
+
+              environment.background_mode = Environment.BG_SKY
+
+              var sky: Sky = Sky.new()
+              var sky_material: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
+
+              sky_material.sky_top_color = Color("#3975ad")
+              sky_material.sky_horizon_color = Color("#a9d7ed")
+              sky_material.ground_bottom_color = Color("#263b3b")
+              sky_material.ground_horizon_color = Color("#b7d7d4")
+              sky_material.sun_angle_max = 18.0
+
+              sky.sky_material = sky_material
+              environment.sky = sky
+
+              environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+              environment.ambient_light_energy = 0.72
+
+              environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+              environment.tonemap_exposure = 1.15
+
+              environment.fog_enabled = true
+              environment.fog_light_color = Color("#b8dce8")
+              environment.fog_light_energy = 0.7
+              environment.fog_density = 0.0045
+              environment.fog_height = 5.0
+              environment.fog_height_density = 0.018
+
+              world_environment.environment = environment
+              add_child(world_environment)
+
+              var sun: DirectionalLight3D = DirectionalLight3D.new()
+              sun.name = "Sun"
+              sun.rotation_degrees = Vector3(-52.0, -32.0, 0.0)
+              sun.light_color = Color("#fff0d1")
+              sun.light_energy = 1.55
+              sun.shadow_enabled = true
+              sun.directional_shadow_max_distance = 75.0
+              add_child(sun)
+
+              var fill: DirectionalLight3D = DirectionalLight3D.new()
+              fill.rotation_degrees = Vector3(-25.0, 145.0, 0.0)
+              fill.light_color = Color("#91c8ff")
+              fill.light_energy = 0.32
+              add_child(fill)
+
+              _create_terrain()
+              _create_water()
+
+              _create_forest()
+              _create_rocks()
+              _create_resources()
+              _create_landmarks()
+
+          func _create_terrain() -> void:
+              var terrain_material: StandardMaterial3D = StandardMaterial3D.new()
+              terrain_material.albedo_color = Color("#557e55")
+              terrain_material.roughness = 0.92
+
+              var centers: Array[Vector3] = [
+                  Vector3(0, -2.8, 0),
+                  Vector3(-28, -3.4, -10),
+                  Vector3(30, -3.1, -18),
+                  Vector3(-18, -3.0, 25),
+                  Vector3(27, -3.2, 27),
+                  Vector3(0, -3.8, 36)
+              ]
+
+              var scales: Array[Vector3] = [
+                  Vector3(55, 6, 48),
+                  Vector3(30, 5, 28),
+                  Vector3(32, 5, 25),
+                  Vector3(32, 5, 29),
+                  Vector3(30, 5, 28),
+                  Vector3(35, 5, 24)
+              ]
+
+              for i in centers.size():
+                  var island: MeshInstance3D = MeshInstance3D.new()
+                  var mesh: SphereMesh = SphereMesh.new()
+
+                  mesh.radius = 1.0
+                  mesh.height = 2.0
+                  mesh.radial_segments = 48
+                  mesh.rings = 18
+
+                  island.mesh = mesh
+                  island.position = centers[i]
+                  island.scale = scales[i]
+                  island.material_override = terrain_material
+
+                  add_child(island)
+
+              _create_ground_accents()
+
+          func _create_ground_accents() -> void:
+              var dirt_material: StandardMaterial3D = StandardMaterial3D.new()
+              dirt_material.albedo_color = Color("#8b704f")
+              dirt_material.roughness = 1.0
+
+              for i in 18:
+                  var patch: MeshInstance3D = MeshInstance3D.new()
+                  var mesh: SphereMesh = SphereMesh.new()
+
+                  mesh.radius = 1.0
+                  mesh.height = 2.0
+                  mesh.radial_segments = 24
+                  mesh.rings = 10
+
+                  patch.mesh = mesh
+                  patch.scale = Vector3(
+                      randf_range(1.5, 4.0),
+                      0.05,
+                      randf_range(1.0, 3.0)
+                  )
+                  patch.position = Vector3(
+                      randf_range(-43.0, 43.0),
+                      -0.15,
+                      randf_range(-43.0, 43.0)
+                  )
+                  patch.material_override = dirt_material
+
+                  add_child(patch)
+
+          func _create_water() -> void:
+              var water: MeshInstance3D = MeshInstance3D.new()
+              water.name = "Water"
+
+              var mesh: PlaneMesh = PlaneMesh.new()
+              mesh.size = Vector2(48.0, 34.0)
+              mesh.subdivide_width = 18
+              mesh.subdivide_depth = 14
+
+              water.mesh = mesh
+              water.position = Vector3(10.0, WATER_LEVEL, -25.0)
+
+              var material: StandardMaterial3D = StandardMaterial3D.new()
+              material.albedo_color = Color(0.10, 0.46, 0.70, 0.72)
+              material.metallic = 0.15
+              material.roughness = 0.12
+              material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+              material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+
+              water.material_override = material
+              add_child(water)
+
+              for i in 7:
+                  var ripple: MeshInstance3D = MeshInstance3D.new()
+                  var ripple_mesh: TorusMesh = TorusMesh.new()
+
+                  ripple_mesh.inner_radius = 0.45
+                  ripple_mesh.outer_radius = 0.5
+                  ripple_mesh.rings = 16
+                  ripple_mesh.ring_segments = 12
+
+                  ripple.mesh = ripple_mesh
+                  ripple.position = Vector3(
+                      randf_range(-10.0, 28.0),
+                      WATER_LEVEL + 0.04,
+                      randf_range(-38.0, -12.0)
+                  )
+                  ripple.scale = Vector3(
+                      randf_range(1.0, 2.5),
+                      1.0,
+                      randf_range(0.6, 1.4)
+                  )
+
+                  var ripple_mat: StandardMaterial3D = StandardMaterial3D.new()
+                  ripple_mat.albedo_color = Color(0.65, 0.9, 1.0, 0.25)
+                  ripple_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+                  ripple.material_override = ripple_mat
+
+                  add_child(ripple)
+
+          func _create_forest() -> void:
+              var positions: Array[Vector3] = []
+
+              for i in 26:
+                  var p: Vector3 = Vector3(
+                      randf_range(-44.0, 44.0),
+                      0.5,
+                      randf_range(-42.0, 42.0)
+                  )
+
+                  if p.distance_to(Vector3(0, 0, 8)) < 10.0:
+                      continue
+
+                  if p.z < -12.0 and p.x > -15.0 and p.x < 30.0:
+                      continue
+
+                  positions.append(p)
+
+              for p in positions:
+                  _create_tree(p, randf_range(0.85, 1.25))
+
+              for i in 65:
+                  var p: Vector3 = Vector3(
+                      randf_range(-47.0, 47.0),
+                      0.6,
+                      randf_range(-45.0, 45.0)
+                  )
+
+                  _create_bush(p, randf_range(0.6, 1.35))
+
+              for i in 90:
+                  var p: Vector3 = Vector3(
+                      randf_range(-47.0, 47.0),
+                      0.65,
+                      randf_range(-45.0, 45.0)
+                  )
+
+                  _create_grass(p, randf_range(0.65, 1.25))
+
+              for i in 32:
+                  var p: Vector3 = Vector3(
+                      randf_range(-45.0, 45.0),
+                      0.72,
+                      randf_range(-43.0, 43.0)
+                  )
+
+                  _create_flower(p)
+
+          func _create_tree(pos: Vector3, scale_factor: float) -> void:
+              var tree: Node3D = Node3D.new()
+              tree.position = pos
+              tree.scale = Vector3.ONE * scale_factor
+              add_child(tree)
+
+              var trunk_mat: StandardMaterial3D = StandardMaterial3D.new()
+              trunk_mat.albedo_color = Color("#765038")
+              trunk_mat.roughness = 0.95
+
+              var trunk: MeshInstance3D = MeshInstance3D.new()
+              var trunk_mesh: CylinderMesh = CylinderMesh.new()
+
+              trunk_mesh.top_radius = 0.28
+              trunk_mesh.bottom_radius = 0.42
+              trunk_mesh.height = 3.4
+              trunk_mesh.radial_segments = 12
+
+              trunk.mesh = trunk_mesh
+              trunk.position.y = 1.7
+              trunk.material_override = trunk_mat
+              tree.add_child(trunk)
+
+              var leaf_mat: StandardMaterial3D = StandardMaterial3D.new()
+              leaf_mat.albedo_color = Color("#3f8b52")
+              leaf_mat.roughness = 0.82
+
+              var leaf_positions: Array[Vector3] = [
+                  Vector3(0, 3.5, 0),
+                  Vector3(-0.8, 4.0, 0.1),
+                  Vector3(0.8, 4.05, -0.1),
+                  Vector3(0, 4.55, 0),
+                  Vector3(0, 5.0, 0)
+              ]
+
+              for lp in leaf_positions:
+                  var leaf: MeshInstance3D = MeshInstance3D.new()
+                  var sphere: SphereMesh = SphereMesh.new()
+
+                  sphere.radius = 1.35
+                  sphere.height = 2.5
+                  sphere.radial_segments = 18
+                  sphere.rings = 10
+
+                  leaf.mesh = sphere
+                  leaf.position = lp
+                  leaf.scale = Vector3(1.15, 0.9, 1.0)
+                  leaf.material_override = leaf_mat
+
+                  tree.add_child(leaf)
+
+          func _create_bush(pos: Vector3, scale_factor: float) -> void:
+              var bush: MeshInstance3D = MeshInstance3D.new()
+              var mesh: SphereMesh = SphereMesh.new()
+
+              mesh.radius = 0.85
+              mesh.height = 1.2
+              mesh.radial_segments = 16
+              mesh.rings = 8
+
+              bush.mesh = mesh
+              bush.position = pos
+              bush.scale = Vector3(1.3, 0.75, 1.0) * scale_factor
+
+              var material: StandardMaterial3D = StandardMaterial3D.new()
+              material.albedo_color = Color("#4f9a55")
+              material.roughness = 0.9
+
+              bush.material_override = material
+              add_child(bush)
+
+          func _create_grass(pos: Vector3, scale_factor: float) -> void:
+              var grass: MeshInstance3D = MeshInstance3D.new()
+              var mesh: CylinderMesh = CylinderMesh.new()
+
+              mesh.top_radius = 0.02
+              mesh.bottom_radius = 0.12
+              mesh.height = 0.8
+              mesh.radial_segments = 6
+
+              grass.mesh = mesh
+              grass.position = pos
+              grass.scale = Vector3.ONE * scale_factor
+              grass.rotation_degrees.y = randf_range(0.0, 360.0)
+
+              var material: StandardMaterial3D = StandardMaterial3D.new()
+              material.albedo_color = Color("#79ad55")
+              material.roughness = 1.0
+
+              grass.material_override = material
+              add_child(grass)
+
+          func _create_flower(pos: Vector3) -> void:
+              var flower: Node3D = Node3D.new()
+              flower.position = pos
+              add_child(flower)
+
+              var stem: MeshInstance3D = MeshInstance3D.new()
+              var stem_mesh: CylinderMesh = CylinderMesh.new()
+
+              stem_mesh.top_radius = 0.015
+              stem_mesh.bottom_radius = 0.025
+              stem_mesh.height = 0.45
+              stem_mesh.radial_segments = 5
+
+              stem.mesh = stem_mesh
+              stem.position.y = 0.22
+
+              var stem_mat: StandardMaterial3D = StandardMaterial3D.new()
+              stem_mat.albedo_color = Color("#4d8245")
+              stem.material_override = stem_mat
+
+              flower.add_child(stem)
+
+              var head: MeshInstance3D = MeshInstance3D.new()
+              var head_mesh: SphereMesh = SphereMesh.new()
+
+              head_mesh.radius = 0.14
+              head_mesh.height = 0.25
+              head_mesh.radial_segments = 10
+              head_mesh.rings = 6
+
+              head.mesh = head_mesh
+              head.position.y = 0.48
+
+              var head_mat: StandardMaterial3D = StandardMaterial3D.new()
+              head_mat.albedo_color = Color("#f7c85b")
+              head.material_override = head_mat
+
+              flower.add_child(head)
+
+          func _create_rocks() -> void:
+              for i in 24:
+                  var rock: MeshInstance3D = MeshInstance3D.new()
+                  var mesh: SphereMesh = SphereMesh.new()
+
+                  mesh.radius = randf_range(0.45, 1.15)
+                  mesh.height = randf_range(0.8, 1.5)
+                  mesh.radial_segments = 10
+                  mesh.rings = 6
+
+                  rock.mesh = mesh
+                  rock.position = Vector3(
+                      randf_range(-45.0, 45.0),
+                      0.3,
+                      randf_range(-43.0, 43.0)
+                  )
+                  rock.scale = Vector3(
+                      randf_range(1.0, 1.8),
+                      randf_range(0.55, 0.9),
+                      randf_range(0.9, 1.5)
+                  )
+                  rock.rotation_degrees = Vector3(
+                      randf_range(-8.0, 8.0),
+                      randf_range(0.0, 360.0),
+                      randf_range(-8.0, 8.0)
+                  )
+
+                  var material: StandardMaterial3D = StandardMaterial3D.new()
+                  material.albedo_color = Color("#70797a")
+                  material.roughness = 0.96
+
+                  rock.material_override = material
+                  add_child(rock)
+
+          func _create_resources() -> void:
+              var resource_positions: Array[Vector3] = [
+                  Vector3(-15, 0.7, 14),
+                  Vector3(18, 0.7, 18),
+                  Vector3(-30, 0.7, -23),
+                  Vector3(33, 0.7, 5),
+                  Vector3(7, 0.7, 30),
+                  Vector3(-38, 0.7, 30)
+              ]
+
+              for p in resource_positions:
+                  var node: Node3D = Node3D.new()
+                  node.position = p
+                  add_child(node)
+
+                  var base: MeshInstance3D = MeshInstance3D.new()
+                  var base_mesh: CylinderMesh = CylinderMesh.new()
+
+                  base_mesh.top_radius = 0.7
+                  base_mesh.bottom_radius = 0.9
+                  base_mesh.height = 0.45
+                  base_mesh.radial_segments = 10
+
+                  base.mesh = base_mesh
+                  base.position.y = 0.25
+
+                  var base_mat: StandardMaterial3D = StandardMaterial3D.new()
+                  base_mat.albedo_color = Color("#526062")
+                  base_mat.roughness = 0.92
+                  base.material_override = base_mat
+
+                  node.add_child(base)
+
+                  var crystal: MeshInstance3D = MeshInstance3D.new()
+                  var crystal_mesh: PrismMesh = PrismMesh.new()
+
+                  crystal_mesh.size = Vector3(0.9, 1.5, 0.9)
+
+                  crystal.mesh = crystal_mesh
+                  crystal.position.y = 1.1
+                  crystal.rotation_degrees.y = randf_range(0.0, 360.0)
+
+                  var crystal_mat: StandardMaterial3D = StandardMaterial3D.new()
+                  crystal_mat.albedo_color = Color("#5fc9d2")
+                  crystal_mat.metallic = 0.35
+                  crystal_mat.roughness = 0.2
+                  crystal.material_override = crystal_mat
+
+                  node.add_child(crystal)
+
+          func _create_landmarks() -> void:
+              var camp: Node3D = Node3D.new()
+              camp.position = Vector3(0, 0.4, 8)
+              add_child(camp)
+
+              var fire_base: MeshInstance3D = MeshInstance3D.new()
+              var fire_mesh: CylinderMesh = CylinderMesh.new()
+
+              fire_mesh.top_radius = 0.8
+              fire_mesh.bottom_radius = 1.0
+              fire_mesh.height = 0.35
+              fire_mesh.radial_segments = 12
+
+              fire_base.mesh = fire_mesh
+              fire_base.position.y = 0.18
+
+              var fire_mat: StandardMaterial3D = StandardMaterial3D.new()
+              fire_mat.albedo_color = Color("#4c4740")
+              fire_base.material_override = fire_mat
+
+              camp.add_child(fire_base)
+
+              var light: OmniLight3D = OmniLight3D.new()
+              light.light_color = Color("#ff9a45")
+              light.light_energy = 2.4
+              light.omni_range = 8.0
+              light.position.y = 1.4
+
+              camp.add_child(light)
+
+              for i in 6:
+                  var log: MeshInstance3D = MeshInstance3D.new()
+                  var log_mesh: CylinderMesh = CylinderMesh.new()
+
+                  log_mesh.top_radius = 0.14
+                  log_mesh.bottom_radius = 0.18
+                  log_mesh.height = 1.7
+                  log_mesh.radial_segments = 8
+
+                  log.mesh = log_mesh
+                  log.position = Vector3(
+                      cos(float(i)) * 0.65,
+                      0.35,
+                      sin(float(i)) * 0.65
+                  )
+                  log.rotation_degrees = Vector3(90.0, float(i) * 60.0, 0.0)
+
+                  var log_mat: StandardMaterial3D = StandardMaterial3D.new()
+                  log_mat.albedo_color = Color("#70452e")
+                  log.material_override = log_mat
+
+                  camp.add_child(log)
+
+          func _create_player() -> void:
+              player = CharacterBody3D.new()
+              player.name = "Player"
+              player.position = Vector3(0, 2.0, 2.0)
+              add_child(player)
+
+              var collision: CollisionShape3D = CollisionShape3D.new()
+              var capsule_shape: CapsuleShape3D = CapsuleShape3D.new()
+
+              capsule_shape.radius = 0.42
+              capsule_shape.height = 1.8
+
+              collision.shape = capsule_shape
+              collision.position.y = 0.9
+              player.add_child(collision)
+
+              var body: MeshInstance3D = MeshInstance3D.new()
+              var body_mesh: CapsuleMesh = CapsuleMesh.new()
+
+              body_mesh.radius = 0.42
+              body_mesh.height = 1.25
+              body_mesh.radial_segments = 16
+              body_mesh.rings = 8
+
+              body.mesh = body_mesh
+              body.position.y = 0.9
+
+              var body_mat: StandardMaterial3D = StandardMaterial3D.new()
+              body_mat.albedo_color = Color("#315f83")
+              body_mat.roughness = 0.65
+              body.material_override = body_mat
+
+              player.add_child(body)
+
+              var head: MeshInstance3D = MeshInstance3D.new()
+              var head_mesh: SphereMesh = SphereMesh.new()
+
+              head_mesh.radius = 0.38
+              head_mesh.height = 0.72
+              head_mesh.radial_segments = 20
+              head_mesh.rings = 12
+
+              head.mesh = head_mesh
+              head.position.y = 1.8
+
+              var skin: StandardMaterial3D = StandardMaterial3D.new()
+              skin.albedo_color = Color("#d99b72")
+              skin.roughness = 0.75
+              head.material_override = skin
+
+              player.add_child(head)
+
+              var backpack: MeshInstance3D = MeshInstance3D.new()
+              var backpack_mesh: BoxMesh = BoxMesh.new()
+
+              backpack_mesh.size = Vector3(0.55, 0.72, 0.25)
+
+              backpack.mesh = backpack_mesh
+              backpack.position = Vector3(0, 1.0, 0.42)
+
+              var backpack_mat: StandardMaterial3D = StandardMaterial3D.new()
+              backpack_mat.albedo_color = Color("#9a633c")
+              backpack_mat.roughness = 0.9
+              backpack.material_override = backpack_mat
+
+              player.add_child(backpack)
+
+          func _create_camera() -> void:
+              camera_pivot = Node3D.new()
+              camera_pivot.position = Vector3(0, 2.0, 7.5)
+              add_child(camera_pivot)
+
+              camera = Camera3D.new()
+              camera.position = Vector3(0, 3.0, 8.5)
+              camera.rotation_degrees.x = -12.0
+              camera.current = true
+              camera.fov = 62.0
+
+              camera_pivot.add_child(camera)
+
+          func _create_ui() -> void:
+              var layer: CanvasLayer = CanvasLayer.new()
+              layer.name = "HUD"
+              add_child(layer)
+
+              var top_panel: ColorRect = ColorRect.new()
+              top_panel.position = Vector2(25, 22)
+              top_panel.size = Vector2(430, 105)
+              top_panel.color = Color(0.03, 0.07, 0.10, 0.72)
+              layer.add_child(top_panel)
+
+              var title: Label = Label.new()
+              title.text = "MUNDO V1"
+              title.position = Vector2(22, 12)
+              title.add_theme_font_size_override("font_size", 29)
+              top_panel.add_child(title)
+
+              var subtitle: Label = Label.new()
+              subtitle.text = "AAA MOBILE • V2.4"
+              subtitle.position = Vector2(24, 51)
+              subtitle.add_theme_font_size_override("font_size", 15)
+              top_panel.add_child(subtitle)
+
+              status_label = Label.new()
+              status_label.text = "EXPLORANDO"
+              status_label.position = Vector2(24, 75)
+              status_label.add_theme_font_size_override("font_size", 14)
+              top_panel.add_child(status_label)
+
+              var life_text: Label = Label.new()
+              life_text.text = "VIDA"
+              life_text.position = Vector2(490, 28)
+              layer.add_child(life_text)
+
+              life_bar = ProgressBar.new()
+              life_bar.position = Vector2(490, 52)
+              life_bar.size = Vector2(230, 22)
+              life_bar.max_value = 100.0
+              life_bar.value = life
+              life_bar.show_percentage = false
+              layer.add_child(life_bar)
+
+              var stamina_text: Label = Label.new()
+              stamina_text.text = "ENERGIA"
+              stamina_text.position = Vector2(490, 80)
+              layer.add_child(stamina_text)
+
+              stamina_bar = ProgressBar.new()
+              stamina_bar.position = Vector2(490, 104)
+              stamina_bar.size = Vector2(230, 22)
+              stamina_bar.max_value = 100.0
+              stamina_bar.value = stamina
+              stamina_bar.show_percentage = false
+              layer.add_child(stamina_bar)
+
+              inventory_label = Label.new()
+              inventory_label.text = "RECURSOS  0"
+              inventory_label.position = Vector2(1030, 35)
+              inventory_label.add_theme_font_size_override("font_size", 19)
+              layer.add_child(inventory_label)
+
+              var hint: Label = Label.new()
+              hint.text = "DESLIZE PARA MOVER  •  TOQUE PARA INTERAGIR"
+              hint.position = Vector2(380, 675)
+              hint.add_theme_font_size_override("font_size", 14)
+              layer.add_child(hint)
+
+              var joystick: ColorRect = ColorRect.new()
+              joystick.position = Vector2(45, 540)
+              joystick.size = Vector2(145, 145)
+              joystick.color = Color(0.05, 0.10, 0.13, 0.38)
+              joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+              layer.add_child(joystick)
+
+              var joystick_text: Label = Label.new()
+              joystick_text.text = "MOVE"
+              joystick_text.position = Vector2(49, 54)
+              joystick_text.add_theme_font_size_override("font_size", 17)
+              joystick.add_child(joystick_text)
+
+              var action: Button = Button.new()
+              action.text = "COLETAR"
+              action.position = Vector2(1040, 555)
+              action.size = Vector2(175, 62)
+              action.add_theme_font_size_override("font_size", 18)
+              action.pressed.connect(_collect)
+              layer.add_child(action)
+
+              var jump: Button = Button.new()
+              jump.text = "SALTAR"
+              jump.position = Vector2(1040, 630)
+              jump.size = Vector2(175, 55)
+              jump.add_theme_font_size_override("font_size", 16)
+              jump.pressed.connect(_jump)
+              layer.add_child(jump)
+
+          func _jump() -> void:
+              if player != null and player.is_on_floor():
+                  velocity_y = 7.2
+
+          func _collect() -> void:
+              collected += 1
+              status_label.text = "RECURSO COLETADO"
+
+          func _update_ui() -> void:
+              if stamina_bar != null:
+                  stamina_bar.value = stamina
+
+              if life_bar != null:
+                  life_bar.value = life
+
+              if inventory_label != null:
+                  inventory_label.text = "RECURSOS  %02d" % collected
+
+              if status_label != null and not sprinting:
+                  status_label.text = "EXPLORANDO"
+
+          func _animate_world(delta: float) -> void:
+              var water: Node = get_node_or_null("Water")
+
+              if water != null:
+                  water.position.y = WATER_LEVEL + sin(day_time * 1.4) * 0.035
+
+          func _input(event: InputEvent) -> void:
+              if event is InputEventScreenTouch:
+                  if event.pressed:
+                      if event.position.x < 320.0:
+                          touch_move_active = true
+                          move_touch = Vector2.ZERO
+                      else:
+                          touch_look_active = true
+                          look_touch = event.position
+                  else:
+                      touch_move_active = false
+                      touch_look_active = false
+
+              elif event is InputEventScreenDrag:
+                  if touch_move_active and event.position.x < 320.0:
+                      var center: Vector2 = Vector2(117.0, 612.0)
+                      var offset: Vector2 = event.position - center
+                      move_touch = Vector2(
+                          clamp(offset.x / 65.0, -1.0, 1.0),
+                          clamp(offset.y / 65.0, -1.0, 1.0)
+                      )
+
+                  elif touch_look_active:
+                      var delta_look: Vector2 = event.relative
+                      if camera_pivot != null:
+                          camera_pivot.rotation_degrees.y -= delta_look.x * 0.08
+                          camera.rotation_degrees.x = clamp(
+                              camera.rotation_degrees.x - delta_look.y * 0.05,
+                              -35.0,
+                              5.0
+                          )
+          EOF
 
       - name: Criar export_presets.cfg
         shell: bash
         run: |
           set -euxo pipefail
-
-          mkdir -p "$HOME/.android"
-
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool \
-              -genkeypair \
-              -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
 
           cat > export_presets.cfg <<'EOF'
           [preset.0]
@@ -314,8 +1028,6 @@ jobs:
           platform="Android"
           runnable=true
           advanced_options=true
-          dedicated_server=false
-          custom_features=""
           export_filter="all_resources"
           include_filter=""
           exclude_filter=""
@@ -326,42 +1038,69 @@ jobs:
           custom_template/debug=""
           custom_template/release=""
 
-          gradle_build/use_gradle_build=false
+          package/unique_name="com.mundov1.game"
+          package/name="MUNDO V1"
+          package/version/code=24
+          package/version/name="2.4"
+
+          version/code=24
+          version/name="2.4"
 
           architectures/armeabi-v7a=false
           architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
 
-          package/unique_name="com.mundov1.game"
-          package/name="MUNDO V1"
           package/signed=true
-          package/version/code=23
-          package/version/name="2.3"
-
-          version/code=23
-          version/name="2.3"
-
-          package/launcher_icons/main="res://icon.svg"
-
-          screen/immersive_mode=true
-          screen/orientation=1
-
-          rendering/method="gl_compatibility"
-          rendering/driver="opengl3"
-
-          input_devices/pointing/emulate_touch_from_mouse=true
-          input_devices/pointing/emulate_mouse_from_touch=true
 
           options/keystore/debug="/home/runner/.android/debug.keystore"
           options/keystore/debug_user="androiddebugkey"
           options/keystore/debug_password="android"
+
+          package/icon="res://icon.svg"
+
+          rendering/method="gl_compatibility"
+          rendering/driver="opengl3"
+
+          texture_format/s3tc=false
+          texture_format/etc=true
+          texture_format/etc2=true
+          texture_format/no_bptc=true
+
+          screen/immersive_mode=true
+          screen/edge_to_edge=true
           EOF
 
-      - name: Validar projeto Godot
+      - name: Criar debug keystore
         shell: bash
         run: |
           set -euxo pipefail
+
+          mkdir -p "$HOME/.android"
+
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          test -s "$HOME/.android/debug.keystore"
+
+      - name: Validar projeto
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          test -f project.godot
+          test -f Main.tscn
+          test -f scripts/main.gd
+          test -f export_presets.cfg
 
           godot \
             --headless \
@@ -369,25 +1108,23 @@ jobs:
             --path . \
             --quit
 
-      - name: Exportar APK V2.3
+      - name: Exportar APK
         shell: bash
         run: |
           set -euxo pipefail
 
+          rm -rf build
           mkdir -p build
 
           godot \
             --headless \
             --path . \
-            --export-debug \
-            "Android" \
+            --export-debug "Android" \
             build/MundoV1.apk
 
-          test -f build/MundoV1.apk
+          test -s build/MundoV1.apk
 
-          ls -lh build/MundoV1.apk
-
-      - name: Verificar assinatura APK
+      - name: Verificar APK
         shell: bash
         run: |
           set -euxo pipefail
@@ -397,24 +1134,11 @@ jobs:
             --verbose \
             build/MundoV1.apk
 
-      - name: Informações finais
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          echo "========================================"
-          echo " MUNDO V1 - V2.3 AAA MOBILE ESTILIZADO"
-          echo "========================================"
-          echo "APK: build/MundoV1.apk"
-          echo "Package: com.mundov1.game"
-          echo "Version: 2.3"
-          echo "Architecture: ARM64"
-          echo "Renderer: GL Compatibility"
-          echo "========================================"
+          ls -lh build/MundoV1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MUNDO-V1-V2.3-AAA-MOBILE-APK
+          name: MUNDO-V1-V2.4-AAA-MOBILE-APK
           path: build/MundoV1.apk
           if-no-files-found: error
