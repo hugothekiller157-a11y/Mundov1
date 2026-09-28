@@ -1,1078 +1,1354 @@
-steps:
+name: MUNDO V1 V2.8 - SURVIVAL 3D
 
-  - name: Checkout
-    uses: actions/checkout@v5
+on:
+  workflow_dispatch:
 
-  - name: Java 17
-    uses: actions/setup-java@v5
-    with:
-      distribution: temurin
-      java-version: '17'
+jobs:
+  build:
+    name: Build MUNDO V1 V2.8
+    runs-on: ubuntu-22.04
 
-  - name: Instalar Android SDK
-    shell: bash
-    run: |
-      set -euxo pipefail
+    steps:
 
-      export ANDROID_HOME="$HOME/android-sdk"
-      export ANDROID_SDK_ROOT="$ANDROID_HOME"
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      mkdir -p "$ANDROID_HOME/cmdline-tools"
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      cd /tmp
+      - name: Instalar Android SDK
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      wget -q \
-        https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-        -O cmdline-tools.zip
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
-      unzip -q cmdline-tools.zip
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
 
-      mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          cd /tmp
 
-      export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O cmdline-tools.zip
 
-      yes | sdkmanager --licenses >/dev/null || true
+          unzip -q cmdline-tools.zip
 
-      sdkmanager \
-        "platform-tools" \
-        "platforms;android-34" \
-        "build-tools;34.0.0"
+          rm -rf "$ANDROID_HOME/cmdline-tools/latest"
 
-      echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-      echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
 
-      echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-      echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-      echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-  - name: Baixar Godot 4.3
-    shell: bash
-    run: |
-      set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
 
-      mkdir -p "$HOME/godot"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
 
-      cd /tmp
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
-      wget -q \
-        https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
-        -O godot.zip
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
 
-      unzip -q godot.zip
+      - name: Baixar Godot 4.3
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      mv Godot_v4.3-stable_linux.x86_64 "$HOME/godot/godot"
+          mkdir -p "$HOME/godot"
 
-      chmod +x "$HOME/godot/godot"
+          cd /tmp
 
-      echo "$HOME/godot" >> "$GITHUB_PATH"
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
+            -O godot.zip
 
-      export PATH="$HOME/godot:$PATH"
+          unzip -q godot.zip
 
-      "$HOME/godot/godot" --version
+          rm -f "$HOME/godot/godot"
 
-  - name: Instalar templates Android Godot
-    shell: bash
-    run: |
-      set -euxo pipefail
+          mv Godot_v4.3-stable_linux.x86_64 "$HOME/godot/godot"
 
-      GODOT_TEMPLATES="$HOME/.local/share/godot/export_templates/4.3.stable"
+          chmod +x "$HOME/godot/godot"
 
-      mkdir -p "$GODOT_TEMPLATES"
+          echo "$HOME/godot" >> "$GITHUB_PATH"
 
-      cd /tmp
+          export PATH="$HOME/godot:$PATH"
 
-      wget -q \
-        https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
-        -O templates.tpz
+          "$HOME/godot/godot" --version
 
-      mkdir -p templates
+      - name: Instalar templates Android Godot
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      unzip -q templates.tpz -d templates
+          GODOT_TEMPLATES="$HOME/.local/share/godot/export_templates/4.3.stable"
 
-      DEBUG_TEMPLATE="$(find templates -type f -name 'android_debug.apk' | head -n 1)"
-      RELEASE_TEMPLATE="$(find templates -type f -name 'android_release.apk' | head -n 1)"
-      SOURCE_TEMPLATE="$(find templates -type f -name 'android_source.zip' | head -n 1)"
+          mkdir -p "$GODOT_TEMPLATES"
 
-      test -n "$DEBUG_TEMPLATE"
-      test -n "$RELEASE_TEMPLATE"
+          cd /tmp
 
-      cp "$DEBUG_TEMPLATE" "$GODOT_TEMPLATES/android_debug.apk"
-      cp "$RELEASE_TEMPLATE" "$GODOT_TEMPLATES/android_release.apk"
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
+            -O templates.tpz
 
-      if [ -n "$SOURCE_TEMPLATE" ]; then
-        cp "$SOURCE_TEMPLATE" "$GODOT_TEMPLATES/android_source.zip"
-      fi
+          rm -rf templates
+          mkdir -p templates
+
+          unzip -q templates.tpz -d templates
+
+          DEBUG_TEMPLATE="$(find templates -type f -name 'android_debug.apk' | head -n 1)"
+          RELEASE_TEMPLATE="$(find templates -type f -name 'android_release.apk' | head -n 1)"
+
+          test -n "$DEBUG_TEMPLATE"
+          test -n "$RELEASE_TEMPLATE"
 
-      echo "4.3.stable" > "$GODOT_TEMPLATES/version.txt"
-
-      ls -lh "$GODOT_TEMPLATES"
+          cp "$DEBUG_TEMPLATE" \
+            "$GODOT_TEMPLATES/android_debug.apk"
+
+          cp "$RELEASE_TEMPLATE" \
+            "$GODOT_TEMPLATES/android_release.apk"
+
+          echo "4.3.stable" > "$GODOT_TEMPLATES/version.txt"
 
-  - name: Criar debug keystore
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      mkdir -p "$HOME/.android"
-
-      if [ ! -f "$HOME/.android/debug.keystore" ]; then
-        keytool \
-          -genkeypair \
-          -v \
-          -keystore "$HOME/.android/debug.keystore" \
-          -storepass android \
-          -alias androiddebugkey \
-          -keypass android \
-          -keyalg RSA \
-          -keysize 2048 \
-          -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=US"
-      fi
-
-      test -f "$HOME/.android/debug.keystore"
-
-  - name: Configurar variáveis Godot Android
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
-      echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
-      echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
-
-  - name: Criar projeto MUNDO V1 V2.8
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      mkdir -p scripts
-      mkdir -p build
-
-      cat > icon.svg <<'EOF'
-      <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-        <defs>
-          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#5bd3ff"/>
-            <stop offset="1" stop-color="#1261c9"/>
-          </linearGradient>
-        </defs>
-        <rect x="20" y="20" width="472" height="472" rx="110" fill="url(#g)"/>
-        <circle cx="256" cy="245" r="135" fill="#eaffff" opacity="0.92"/>
-        <path d="M110 345 Q180 285 240 330 T402 330 L402 405 L110 405Z" fill="#236b45"/>
-        <path d="M165 305 L205 230 L245 305 L285 205 L350 305Z" fill="#ffffff" opacity="0.9"/>
-        <circle cx="365" cy="135" r="28" fill="#fff3a1"/>
-      </svg>
-      EOF
-
-      cat > project.godot <<'EOF'
-      ; MUNDO V1 V2.8
-
-      config_version=5
-
-      [application]
-
-      config/name="MUNDO V1"
-      config/description="MUNDO V1 - Survival 3D mobile"
-      run/main_scene="res://main.tscn"
-      config/icon="res://icon.svg"
-
-      [display]
-
-      window/size/viewport_width=1280
-      window/size/viewport_height=720
-      window/size/window_width_override=1280
-      window/size/window_height_override=720
-      window/stretch/mode="canvas_items"
-
-      [rendering]
-
-      renderer/rendering_method="gl_compatibility"
-      renderer/rendering_method.mobile="gl_compatibility"
-      textures/default_filters/use_nearest_mipmap_filter=false
-      textures/vram_compression/import_etc2_astc=true
-
-      [environment]
-
-      default_clear_color=Color(0.35, 0.68, 0.86, 1)
-
-      [physics]
-
-      3d/default_gravity=18.0
-
-      [input]
-
-      move_forward={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":87)]
-      }
-
-      move_back={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":83)]
-      }
-
-      move_left={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":65)]
-      }
-
-      move_right={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":68)]
-      }
-
-      jump={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":32)]
-      }
-
-      sprint={
-      "deadzone": 0.2,
-      "events": [Object(InputEventKey,"physical_keycode":4194325)]
-      }
-      EOF
-
-      cat > main.tscn <<'EOF'
-      [gd_scene load_steps=2 format=3]
-
-      [ext_resource path="res://scripts/main.gd" type="Script" id="1"]
-
-      [node name="MundoV1" type="Node3D"]
-      script = ExtResource("1")
-      EOF
-
-  - name: Criar jogo V2.8
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      cat > scripts/main.gd <<'EOF'
-      extends Node3D
-
-      var player: CharacterBody3D
-      var camera: Camera3D
-      var sun: DirectionalLight3D
-      var world_environment: WorldEnvironment
-      var environment: Environment
-
-      var wood: int = 0
-      var stone: int = 0
-      var crystal: int = 0
-
-      var life: float = 100.0
-      var stamina: float = 100.0
-      var day_time: float = 0.25
-
-      var resources: Array[Node3D] = []
-      var collected: Array[String] = []
-
-      var joystick_active: bool = false
-      var joystick_touch: int = -1
-      var joystick_origin: Vector2 = Vector2.ZERO
-      var joystick_value: Vector2 = Vector2.ZERO
-
-      var ui_life: Label
-      var ui_stamina: Label
-      var ui_inventory: Label
-      var ui_status: Label
-      var ui_time: Label
-
-      var save_path: String = "user://savegame.json"
-
-      func _ready() -> void:
-          _setup_environment()
-          _create_world()
-          _create_player()
-          _create_camera()
-          _create_hud()
-          _load_game()
-
-      func _process(delta: float) -> void:
-          _update_day_night(delta)
-          _update_player(delta)
-          _update_hud()
-
-      func _physics_process(delta: float) -> void:
-          if player == null:
-              return
-
-          if not player.is_on_floor():
-              player.velocity.y -= 18.0 * delta
-
-          if player.position.y < -10.0:
-              player.position = Vector3(0, 5, 0)
-              life = maxf(life - 15.0, 1.0)
-
-          player.move_and_slide()
-
-      func _setup_environment() -> void:
-          environment = Environment.new()
-          environment.background_mode = Environment.BG_COLOR
-          environment.background_color = Color("#72bfe5")
-          environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-          environment.ambient_light_color = Color("#d8efff")
-          environment.ambient_light_energy = 0.9
-          environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-          environment.tonemap_exposure = 1.08
-          environment.fog_enabled = true
-          environment.fog_light_color = Color("#b9dcef")
-          environment.fog_density = 0.005
-
-          world_environment = WorldEnvironment.new()
-          world_environment.environment = environment
-          add_child(world_environment)
-
-          sun = DirectionalLight3D.new()
-          sun.rotation_degrees = Vector3(-48.0, -28.0, 0.0)
-          sun.light_color = Color("#fff0d1")
-          sun.light_energy = 1.25
-          sun.shadow_enabled = true
-          sun.directional_shadow_max_distance = 90.0
-          add_child(sun)
-
-          var fill := DirectionalLight3D.new()
-          fill.rotation_degrees = Vector3(35.0, 150.0, 0.0)
-          fill.light_color = Color("#a9d8ff")
-          fill.light_energy = 0.22
-          add_child(fill)
-
-      func _create_world() -> void:
-          _create_ground()
-          _create_water()
-          _create_mountains()
-          _create_trees()
-          _create_vegetation()
-          _create_rocks()
-          _create_resources()
-          _create_camp()
-
-      func _create_ground() -> void:
-          var ground := MeshInstance3D.new()
-          var mesh := PlaneMesh.new()
-          mesh.size = Vector2(90.0, 90.0)
-          ground.mesh = mesh
-
-          var material := StandardMaterial3D.new()
-          material.albedo_color = Color("#477b48")
-          material.roughness = 0.95
-          ground.material_override = material
-
-          add_child(ground)
-
-          var body := StaticBody3D.new()
-          var collision := CollisionShape3D.new()
-          var shape := BoxShape3D.new()
-          shape.size = Vector3(90.0, 1.0, 90.0)
-          collision.shape = shape
-          collision.position.y = -0.5
-          body.add_child(collision)
-          add_child(body)
-
-      func _create_water() -> void:
-          var water := MeshInstance3D.new()
-          var mesh := PlaneMesh.new()
-          mesh.size = Vector2(38.0, 20.0)
-          water.mesh = mesh
-          water.position = Vector3(14.0, 0.08, -14.0)
-
-          var material := StandardMaterial3D.new()
-          material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-          material.albedo_color = Color(0.08, 0.48, 0.72, 0.70)
-          material.metallic = 0.05
-          material.roughness = 0.15
-          water.material_override = material
-
-          add_child(water)
-
-      func _create_mountains() -> void:
-          for i in range(12):
-              var mountain := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
-              mesh.radius = 5.0 + float(i % 4)
-              mesh.height = 12.0 + float(i % 5) * 2.0
-              mountain.mesh = mesh
-
-              var angle := float(i) / 12.0 * TAU
-              mountain.position = Vector3(
-                  cos(angle) * 42.0,
-                  5.0,
-                  sin(angle) * 42.0
-              )
-
-              mountain.scale = Vector3(1.8, 1.0, 1.4)
-
-              var material := StandardMaterial3D.new()
-              material.albedo_color = Color("#526f63")
-              material.roughness = 1.0
-              mountain.material_override = material
-
-              add_child(mountain)
-
-      func _create_tree(pos: Vector3, scale_factor: float = 1.0) -> void:
-          var tree := Node3D.new()
-          tree.position = pos
-          tree.scale = Vector3.ONE * scale_factor
-          add_child(tree)
-
-          var trunk := MeshInstance3D.new()
-          var trunk_mesh := CylinderMesh.new()
-          trunk_mesh.top_radius = 0.35
-          trunk_mesh.bottom_radius = 0.48
-          trunk_mesh.height = 3.0
-          trunk.mesh = trunk_mesh
-          trunk.position.y = 1.5
-
-          var trunk_mat := StandardMaterial3D.new()
-          trunk_mat.albedo_color = Color("#79523b")
-          trunk_mat.roughness = 0.9
-          trunk.material_override = trunk_mat
-          tree.add_child(trunk)
-
-          for j in range(4):
-              var crown := MeshInstance3D.new()
-              var crown_mesh := SphereMesh.new()
-              crown_mesh.radius = 1.7
-              crown_mesh.height = 3.0
-              crown.mesh = crown_mesh
-              crown.position = Vector3(
-                  float(j % 2) * 1.0 - 0.5,
-                  3.3 + float(j / 2) * 0.75,
-                  float(j / 2) * 0.9 - 0.45
-              )
-
-              var crown_mat := StandardMaterial3D.new()
-              crown_mat.albedo_color = Color("#2d7d4d")
-              crown_mat.roughness = 0.95
-              crown.material_override = crown_mat
-              tree.add_child(crown)
-
-      func _create_trees() -> void:
-          for i in range(34):
-              var angle := float(i) * 2.399
-              var radius := 9.0 + float((i * 7) % 25)
-              var pos := Vector3(
-                  cos(angle) * radius,
-                  0.0,
-                  sin(angle) * radius
-              )
-
-              if pos.distance_to(Vector3.ZERO) > 7.0:
-                  _create_tree(pos, 0.8 + float(i % 4) * 0.08)
-
-      func _create_vegetation() -> void:
-          for i in range(90):
-              var plant := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
-              mesh.radius = 0.18
-              mesh.height = 0.55
-              plant.mesh = mesh
-
-              var x := float((i * 17) % 70) - 35.0
-              var z := float((i * 31) % 70) - 35.0
-              plant.position = Vector3(x, 0.25, z)
-
-              var material := StandardMaterial3D.new()
-              material.albedo_color = Color("#65a84c")
-              material.roughness = 1.0
-              plant.material_override = material
-
-              add_child(plant)
-
-          for i in range(30):
-              var flower := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
-              mesh.radius = 0.12
-              mesh.height = 0.24
-              flower.mesh = mesh
-
-              flower.position = Vector3(
-                  float((i * 13) % 60) - 30.0,
-                  0.18,
-                  float((i * 19) % 60) - 30.0
-              )
-
-              var material := StandardMaterial3D.new()
-              material.albedo_color = Color("#f1c7dd")
-              material.roughness = 0.8
-              flower.material_override = material
-
-              add_child(flower)
-
-      func _create_rocks() -> void:
-          for i in range(35):
-              var rock := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
-              mesh.radius = 0.55 + float(i % 3) * 0.25
-              mesh.height = 0.7 + float(i % 2) * 0.25
-              rock.mesh = mesh
-
-              rock.position = Vector3(
-                  float((i * 23) % 68) - 34.0,
-                  0.35,
-                  float((i * 37) % 68) - 34.0
-              )
-
-              rock.scale = Vector3(1.3, 0.65, 1.0)
-
-              var material := StandardMaterial3D.new()
-              material.albedo_color = Color("#777d7b")
-              material.roughness = 1.0
-              rock.material_override = material
-
-              add_child(rock)
-
-      func _create_resources() -> void:
-          for i in range(12):
-              var resource := MeshInstance3D.new()
-              var mesh := SphereMesh.new()
-              mesh.radius = 0.65
-              mesh.height = 1.2
-              resource.mesh = mesh
-
-              resource.position = Vector3(
-                  float((i * 29) % 54) - 27.0,
-                  0.7,
-                  float((i * 41) % 54) - 27.0
-              )
-
-              var material := StandardMaterial3D.new()
-              material.albedo_color = Color("#a66c43")
-              material.roughness = 0.8
-              resource.material_override = material
-
-              add_child(resource)
-              resources.append(resource)
-
-      func _create_camp() -> void:
-          var camp := Node3D.new()
-          camp.position = Vector3(0.0, 0.0, 4.0)
-          add_child(camp)
-
-          var fire := OmniLight3D.new()
-          fire.light_color = Color("#ff9b3d")
-          fire.light_energy = 2.2
-          fire.omni_range = 9.0
-          fire.position.y = 1.2
-          camp.add_child(fire)
-
-          var flame := MeshInstance3D.new()
-          var flame_mesh := SphereMesh.new()
-          flame_mesh.radius = 0.55
-          flame_mesh.height = 1.7
-          flame.mesh = flame_mesh
-          flame.position.y = 1.1
-
-          var flame_mat := StandardMaterial3D.new()
-          flame_mat.albedo_color = Color("#ff8c2f")
-          flame_mat.emission_enabled = true
-          flame_mat.emission = Color("#ff6a1a")
-          flame_mat.emission_energy_multiplier = 2.5
-          flame.material_override = flame_mat
-          camp.add_child(flame)
-
-          for x in [-0.8, 0.8]:
-              var log := MeshInstance3D.new()
-              var log_mesh := CylinderMesh.new()
-              log_mesh.top_radius = 0.22
-              log_mesh.bottom_radius = 0.22
-              log_mesh.height = 1.7
-              log.mesh = log_mesh
-              log.rotation_degrees.z = 90.0
-              log.position = Vector3(x, 0.22, 0.0)
-
-              var log_mat := StandardMaterial3D.new()
-              log_mat.albedo_color = Color("#65442f")
-              log.material_override = log_mat
-              camp.add_child(log)
-
-          var camp_label := Label3D.new()
-          camp_label.text = "ACAMPAMENTO"
-          camp_label.font_size = 32
-          camp_label.outline_size = 8
-          camp_label.position.y = 3.0
-          camp.add_child(camp_label)
-
-      func _create_player() -> void:
-          player = CharacterBody3D.new()
-          player.name = "Player"
-          player.position = Vector3(0.0, 2.0, 0.0)
-          add_child(player)
-
-          var collision := CollisionShape3D.new()
-          var shape := CapsuleShape3D.new()
-          shape.radius = 0.42
-          shape.height = 1.8
-          collision.shape = shape
-          collision.position.y = 0.9
-          player.add_child(collision)
-
-          var body := MeshInstance3D.new()
-          var body_mesh := CapsuleMesh.new()
-          body_mesh.radius = 0.42
-          body_mesh.height = 1.8
-          body.mesh = body_mesh
-          body.position.y = 0.9
-
-          var body_mat := StandardMaterial3D.new()
-          body_mat.albedo_color = Color("#d6a06a")
-          body_mat.roughness = 0.75
-          body.material_override = body_mat
-          player.add_child(body)
-
-          var backpack := MeshInstance3D.new()
-          var backpack_mesh := BoxMesh.new()
-          backpack_mesh.size = Vector3(0.65, 0.75, 0.25)
-          backpack.mesh = backpack_mesh
-          backpack.position = Vector3(0.0, 1.0, 0.38)
-
-          var backpack_mat := StandardMaterial3D.new()
-          backpack_mat.albedo_color = Color("#5c4030")
-          backpack.material_override = backpack_mat
-          player.add_child(backpack)
-
-      func _create_camera() -> void:
-          camera = Camera3D.new()
-          camera.current = true
-          add_child(camera)
-
-      func _update_player(delta: float) -> void:
-          if player == null:
-              return
-
-          var keyboard := Input.get_vector(
-              "move_left",
-              "move_right",
-              "move_forward",
-              "move_back"
-          )
-
-          var direction := Vector3(
-              keyboard.x + joystick_value.x,
-              0.0,
-              keyboard.y + joystick_value.y
-          )
-
-          if direction.length() > 1.0:
-              direction = direction.normalized()
-
-          var speed := 4.0
-
-          if Input.is_action_pressed("sprint") and stamina > 1.0:
-              speed = 6.5
-              stamina = maxf(stamina - delta * 18.0, 0.0)
-          else:
-              stamina = minf(stamina + delta * 10.0, 100.0)
-
-          player.velocity.x = direction.x * speed
-          player.velocity.z = direction.z * speed
-
-          if Input.is_action_just_pressed("jump") and player.is_on_floor():
-              player.velocity.y = 7.0
-
-          if direction.length() > 0.05:
-              player.rotation.y = lerp_angle(
-                  player.rotation.y,
-                  atan2(direction.x, direction.z),
-                  delta * 8.0
-              )
-
-          var target := player.global_position + Vector3(0.0, 2.0, 0.0)
-          var cam_offset := Vector3(0.0, 4.8, 7.5)
-
-          camera.global_position = camera.global_position.lerp(
-              target + cam_offset.rotated(Vector3.UP, player.rotation.y),
-              delta * 5.0
-          )
-
-          camera.look_at(target, Vector3.UP)
-
-          _collect_nearby()
-          _camp_interaction()
-
-      func _collect_nearby() -> void:
-          if player == null:
-              return
-
-          for resource in resources:
-              if not is_instance_valid(resource):
-                  continue
-
-              if resource.visible and resource.global_position.distance_to(player.global_position) < 2.3:
-                  resource.visible = false
-                  wood += 2
-                  ui_status.text = "MADEIRA COLETADA +2"
-                  _save_game()
-
-      func _camp_interaction() -> void:
-          if player == null:
-              return
-
-          var camp_pos := Vector3(0.0, 0.0, 4.0)
-
-          if player.global_position.distance_to(camp_pos) < 4.0:
-              life = minf(life + 8.0 * get_process_delta_time(), 100.0)
-              stamina = minf(stamina + 20.0 * get_process_delta_time(), 100.0)
-
-      func _update_day_night(delta: float) -> void:
-          day_time += delta * 0.012
-
-          if day_time > 1.0:
-              day_time -= 1.0
-
-          var angle := day_time * TAU
-
-          if sun:
-              sun.rotation_degrees = Vector3(
-                  rad_to_deg(angle) - 90.0,
-                  -28.0,
-                  0.0
-              )
-
-              var daylight := clampf(
-                  sin(angle) * 0.5 + 0.5,
-                  0.08,
-                  1.0
-              )
-
-              sun.light_energy = 0.25 + daylight * 1.05
-
-              if environment:
-                  environment.background_color = Color(
-                      0.05 + daylight * 0.42,
-                      0.10 + daylight * 0.60,
-                      0.18 + daylight * 0.68
-                  )
-
-      func _create_hud() -> void:
-          var layer := CanvasLayer.new()
-          layer.name = "HUD"
-          add_child(layer)
-
-          ui_life = Label.new()
-          ui_life.position = Vector2(35, 30)
-          ui_life.add_theme_font_size_override("font_size", 28)
-          layer.add_child(ui_life)
-
-          ui_stamina = Label.new()
-          ui_stamina.position = Vector2(35, 68)
-          ui_stamina.add_theme_font_size_override("font_size", 22)
-          layer.add_child(ui_stamina)
-
-          ui_inventory = Label.new()
-          ui_inventory.position = Vector2(35, 105)
-          ui_inventory.add_theme_font_size_override("font_size", 21)
-          layer.add_child(ui_inventory)
-
-          ui_status = Label.new()
-          ui_status.position = Vector2(35, 145)
-          ui_status.add_theme_font_size_override("font_size", 20)
-          layer.add_child(ui_status)
-
-          ui_time = Label.new()
-          ui_time.position = Vector2(1030, 30)
-          ui_time.add_theme_font_size_override("font_size", 22)
-          layer.add_child(ui_time)
-
-          var title := Label.new()
-          title.text = "MUNDO V1"
-          title.position = Vector2(35, 190)
-          title.add_theme_font_size_override("font_size", 34)
-          layer.add_child(title)
-
-          var subtitle := Label.new()
-          subtitle.text = "V2.8 • SURVIVAL 3D"
-          subtitle.position = Vector2(38, 228)
-          subtitle.add_theme_font_size_override("font_size", 18)
-          layer.add_child(subtitle)
-
-          _create_touch_controls(layer)
-
-      func _create_touch_controls(layer: CanvasLayer) -> void:
-          var left := Button.new()
-          left.text = "◀"
-          left.position = Vector2(55, 560)
-          left.size = Vector2(80, 80)
-          left.add_theme_font_size_override("font_size", 32)
-          layer.add_child(left)
-
-          var right := Button.new()
-          right.text = "▶"
-          right.position = Vector2(215, 560)
-          right.size = Vector2(80, 80)
-          right.add_theme_font_size_override("font_size", 32)
-          layer.add_child(right)
-
-          var forward := Button.new()
-          forward.text = "▲"
-          forward.position = Vector2(135, 495)
-          forward.size = Vector2(80, 80)
-          forward.add_theme_font_size_override("font_size", 32)
-          layer.add_child(forward)
-
-          var back := Button.new()
-          back.text = "▼"
-          back.position = Vector2(135, 625)
-          back.size = Vector2(80, 80)
-          back.add_theme_font_size_override("font_size", 32)
-          layer.add_child(back)
-
-          var jump_button := Button.new()
-          jump_button.text = "PULAR"
-          jump_button.position = Vector2(1060, 555)
-          jump_button.size = Vector2(160, 70)
-          jump_button.add_theme_font_size_override("font_size", 22)
-          jump_button.pressed.connect(_jump_pressed)
-          layer.add_child(jump_button)
-
-          var sprint_button := Button.new()
-          sprint_button.text = "CORRER"
-          sprint_button.position = Vector2(1060, 640)
-          sprint_button.size = Vector2(160, 70)
-          sprint_button.add_theme_font_size_override("font_size", 20)
-          sprint_button.button_down.connect(_sprint_down)
-          sprint_button.button_up.connect(_sprint_up)
-          layer.add_child(sprint_button)
-
-          left.button_down.connect(_left_down)
-          left.button_up.connect(_direction_up)
-          right.button_down.connect(_right_down)
-          right.button_up.connect(_direction_up)
-          forward.button_down.connect(_forward_down)
-          forward.button_up.connect(_direction_up)
-          back.button_down.connect(_back_down)
-          back.button_up.connect(_direction_up)
-
-      func _left_down() -> void:
-          joystick_value = Vector2(-1.0, 0.0)
-
-      func _right_down() -> void:
-          joystick_value = Vector2(1.0, 0.0)
-
-      func _forward_down() -> void:
-          joystick_value = Vector2(0.0, -1.0)
-
-      func _back_down() -> void:
-          joystick_value = Vector2(0.0, 1.0)
-
-      func _direction_up() -> void:
-          joystick_value = Vector2.ZERO
-
-      func _jump_pressed() -> void:
-          if player and player.is_on_floor():
-              player.velocity.y = 7.0
-
-      func _sprint_down() -> void:
-          Input.action_press("sprint")
-
-      func _sprint_up() -> void:
-          Input.action_release("sprint")
-
-      func _update_hud() -> void:
-          if ui_life:
-              ui_life.text = "❤️ Vida: %d%%" % int(life)
-
-          if ui_stamina:
-              ui_stamina.text = "⚡ Energia: %d%%" % int(stamina)
-
-          if ui_inventory:
-              ui_inventory.text = "🪵 Madeira: %d   🪨 Pedra: %d   💎 Cristal: %d" % [
-                  wood,
-                  stone,
-                  crystal
-              ]
-
-          if ui_time:
-              var hour := int(day_time * 24.0)
-              var minute := int(fmod(day_time * 24.0 * 60.0, 60.0))
-              ui_time.text = "☀ %02d:%02d" % [hour, minute]
-
-      func _save_game() -> void:
-          var data := {
-              "wood": wood,
-              "stone": stone,
-              "crystal": crystal,
-              "life": life,
-              "stamina": stamina,
-              "day_time": day_time
+          test -f "$GODOT_TEMPLATES/android_debug.apk"
+          test -f "$GODOT_TEMPLATES/android_release.apk"
+
+          ls -lh "$GODOT_TEMPLATES"
+
+      - name: Criar debug keystore
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p "$HOME/.android"
+
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool \
+              -genkeypair \
+              -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          test -f "$HOME/.android/debug.keystore"
+
+      - name: Configurar ambiente Godot Android
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Criar estrutura do jogo
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -rf scripts build
+
+          mkdir -p scripts
+          mkdir -p build
+
+          cat > icon.svg <<'EOF'
+          <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#5bd3ff"/>
+                <stop offset="1" stop-color="#1261c9"/>
+              </linearGradient>
+            </defs>
+
+            <rect x="20" y="20" width="472" height="472" rx="110" fill="url(#sky)"/>
+
+            <circle cx="256" cy="240" r="135"
+              fill="#eaffff"
+              opacity="0.95"/>
+
+            <path
+              d="M80 365
+                 Q155 290 225 335
+                 Q285 370 345 315
+                 Q390 285 432 325
+                 L432 420
+                 L80 420 Z"
+              fill="#246b46"/>
+
+            <path
+              d="M125 335
+                 L205 225
+                 L260 315
+                 L315 205
+                 L390 335 Z"
+              fill="#ffffff"
+              opacity="0.9"/>
+
+            <circle cx="365" cy="135" r="30" fill="#fff3a1"/>
+          </svg>
+          EOF
+
+          cat > project.godot <<'EOF'
+          ; MUNDO V1 V2.8
+
+          config_version=5
+
+          [application]
+
+          config/name="MUNDO V1"
+          config/description="MUNDO V1 - Survival 3D"
+          run/main_scene="res://main.tscn"
+          config/icon="res://icon.svg"
+
+          [display]
+
+          window/size/viewport_width=1280
+          window/size/viewport_height=720
+          window/size/window_width_override=1280
+          window/size/window_height_override=720
+          window/stretch/mode="canvas_items"
+
+          [rendering]
+
+          renderer/rendering_method="gl_compatibility"
+          renderer/rendering_method.mobile="gl_compatibility"
+          textures/vram_compression/import_etc2_astc=true
+
+          [environment]
+
+          default_clear_color=Color(0.35, 0.68, 0.86, 1)
+
+          [physics]
+
+          3d/default_gravity=18.0
+
+          [input]
+
+          move_forward={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":87)]
           }
 
-          var file := FileAccess.open(save_path, FileAccess.WRITE)
+          move_back={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":83)]
+          }
 
-          if file:
-              file.store_string(JSON.stringify(data))
+          move_left={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":65)]
+          }
+
+          move_right={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":68)]
+          }
+
+          jump={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":32)]
+          }
+
+          sprint={
+          "deadzone": 0.2,
+          "events": [Object(InputEventKey,"physical_keycode":4194325)]
+          }
+          EOF
+
+          cat > main.tscn <<'EOF'
+          [gd_scene load_steps=2 format=3]
+
+          [ext_resource path="res://scripts/main.gd" type="Script" id="1"]
+
+          [node name="MundoV1" type="Node3D"]
+          script = ExtResource("1")
+          EOF
+
+      - name: Criar código do jogo
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cat > scripts/main.gd <<'EOF'
+          extends Node3D
+
+          var player: CharacterBody3D
+          var camera: Camera3D
+          var sun: DirectionalLight3D
+          var world_environment: WorldEnvironment
+          var environment: Environment
+
+          var wood: int = 0
+          var stone: int = 0
+          var crystal: int = 0
+
+          var life: float = 100.0
+          var stamina: float = 100.0
+          var day_time: float = 0.25
+
+          var resources: Array[Node3D] = []
+
+          var joystick_value: Vector2 = Vector2.ZERO
+
+          var ui_life: Label
+          var ui_stamina: Label
+          var ui_inventory: Label
+          var ui_status: Label
+          var ui_time: Label
+
+          var save_path: String = "user://savegame.json"
+
+          func _ready() -> void:
+              _setup_environment()
+              _create_world()
+              _create_player()
+              _create_camera()
+              _create_hud()
+              _load_game()
+
+          func _process(delta: float) -> void:
+              _update_day_night(delta)
+              _update_hud()
+
+          func _physics_process(delta: float) -> void:
+              if player == null:
+                  return
+
+              _update_player(delta)
+
+              if not player.is_on_floor():
+                  player.velocity.y -= 18.0 * delta
+
+              if player.position.y < -10.0:
+                  player.position = Vector3(0.0, 3.0, 0.0)
+                  life = maxf(life - 15.0, 1.0)
+
+              player.move_and_slide()
+
+          func _setup_environment() -> void:
+              environment = Environment.new()
+
+              environment.background_mode = Environment.BG_COLOR
+              environment.background_color = Color("#72bfe5")
+
+              environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+              environment.ambient_light_color = Color("#d8efff")
+              environment.ambient_light_energy = 0.9
+
+              environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+              environment.tonemap_exposure = 1.08
+
+              environment.fog_enabled = true
+              environment.fog_light_color = Color("#b9dcef")
+              environment.fog_density = 0.005
+
+              world_environment = WorldEnvironment.new()
+              world_environment.environment = environment
+              add_child(world_environment)
+
+              sun = DirectionalLight3D.new()
+              sun.rotation_degrees = Vector3(-48.0, -28.0, 0.0)
+              sun.light_color = Color("#fff0d1")
+              sun.light_energy = 1.25
+              sun.shadow_enabled = true
+              sun.directional_shadow_max_distance = 90.0
+              add_child(sun)
+
+              var fill := DirectionalLight3D.new()
+              fill.rotation_degrees = Vector3(35.0, 150.0, 0.0)
+              fill.light_color = Color("#a9d8ff")
+              fill.light_energy = 0.22
+              add_child(fill)
+
+          func _create_world() -> void:
+              _create_ground()
+              _create_water()
+              _create_mountains()
+              _create_trees()
+              _create_vegetation()
+              _create_rocks()
+              _create_resources()
+              _create_camp()
+
+          func _create_ground() -> void:
+              var ground := MeshInstance3D.new()
+
+              var mesh := PlaneMesh.new()
+              mesh.size = Vector2(90.0, 90.0)
+
+              ground.mesh = mesh
+
+              var material := StandardMaterial3D.new()
+              material.albedo_color = Color("#477b48")
+              material.roughness = 0.95
+
+              ground.material_override = material
+
+              add_child(ground)
+
+              var body := StaticBody3D.new()
+              var collision := CollisionShape3D.new()
+              var shape := BoxShape3D.new()
+
+              shape.size = Vector3(90.0, 1.0, 90.0)
+
+              collision.shape = shape
+              collision.position.y = -0.5
+
+              body.add_child(collision)
+              add_child(body)
+
+          func _create_water() -> void:
+              var water := MeshInstance3D.new()
+
+              var mesh := PlaneMesh.new()
+              mesh.size = Vector2(38.0, 20.0)
+
+              water.mesh = mesh
+              water.position = Vector3(14.0, 0.08, -14.0)
+
+              var material := StandardMaterial3D.new()
+
+              material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+              material.albedo_color = Color(0.08, 0.48, 0.72, 0.70)
+              material.metallic = 0.05
+              material.roughness = 0.15
+
+              water.material_override = material
+
+              add_child(water)
+
+          func _create_mountains() -> void:
+              for i in range(12):
+                  var mountain := MeshInstance3D.new()
+
+                  var mesh := SphereMesh.new()
+                  mesh.radius = 5.0 + float(i % 4)
+                  mesh.height = 12.0 + float(i % 5) * 2.0
+
+                  mountain.mesh = mesh
+
+                  var angle: float = float(i) / 12.0 * TAU
+
+                  mountain.position = Vector3(
+                      cos(angle) * 42.0,
+                      5.0,
+                      sin(angle) * 42.0
+                  )
+
+                  mountain.scale = Vector3(1.8, 1.0, 1.4)
+
+                  var material := StandardMaterial3D.new()
+                  material.albedo_color = Color("#526f63")
+                  material.roughness = 1.0
+
+                  mountain.material_override = material
+
+                  add_child(mountain)
+
+          func _create_tree(pos: Vector3, scale_factor: float = 1.0) -> void:
+              var tree := Node3D.new()
+
+              tree.position = pos
+              tree.scale = Vector3.ONE * scale_factor
+
+              add_child(tree)
+
+              var trunk := MeshInstance3D.new()
+
+              var trunk_mesh := CylinderMesh.new()
+              trunk_mesh.top_radius = 0.35
+              trunk_mesh.bottom_radius = 0.48
+              trunk_mesh.height = 3.0
+
+              trunk.mesh = trunk_mesh
+              trunk.position.y = 1.5
+
+              var trunk_mat := StandardMaterial3D.new()
+              trunk_mat.albedo_color = Color("#79523b")
+              trunk_mat.roughness = 0.9
+
+              trunk.material_override = trunk_mat
+
+              tree.add_child(trunk)
+
+              for j in range(4):
+                  var crown := MeshInstance3D.new()
+
+                  var crown_mesh := SphereMesh.new()
+                  crown_mesh.radius = 1.7
+                  crown_mesh.height = 3.0
+
+                  crown.mesh = crown_mesh
+
+                  crown.position = Vector3(
+                      float(j % 2) * 1.0 - 0.5,
+                      3.3 + float(j / 2) * 0.75,
+                      float(j / 2) * 0.9 - 0.45
+                  )
+
+                  var crown_mat := StandardMaterial3D.new()
+                  crown_mat.albedo_color = Color("#2d7d4d")
+                  crown_mat.roughness = 0.95
+
+                  crown.material_override = crown_mat
+
+                  tree.add_child(crown)
+
+          func _create_trees() -> void:
+              for i in range(34):
+                  var angle: float = float(i) * 2.399
+                  var radius: float = 9.0 + float((i * 7) % 25)
+
+                  var pos := Vector3(
+                      cos(angle) * radius,
+                      0.0,
+                      sin(angle) * radius
+                  )
+
+                  if pos.distance_to(Vector3.ZERO) > 7.0:
+                      _create_tree(
+                          pos,
+                          0.8 + float(i % 4) * 0.08
+                      )
+
+          func _create_vegetation() -> void:
+              for i in range(90):
+                  var plant := MeshInstance3D.new()
+
+                  var mesh := SphereMesh.new()
+                  mesh.radius = 0.18
+                  mesh.height = 0.55
+
+                  plant.mesh = mesh
+
+                  var x: float = float((i * 17) % 70) - 35.0
+                  var z: float = float((i * 31) % 70) - 35.0
+
+                  plant.position = Vector3(x, 0.25, z)
+
+                  var material := StandardMaterial3D.new()
+                  material.albedo_color = Color("#65a84c")
+                  material.roughness = 1.0
+
+                  plant.material_override = material
+
+                  add_child(plant)
+
+              for i in range(30):
+                  var flower := MeshInstance3D.new()
+
+                  var mesh := SphereMesh.new()
+                  mesh.radius = 0.12
+                  mesh.height = 0.24
+
+                  flower.mesh = mesh
+
+                  flower.position = Vector3(
+                      float((i * 13) % 60) - 30.0,
+                      0.18,
+                      float((i * 19) % 60) - 30.0
+                  )
+
+                  var material := StandardMaterial3D.new()
+                  material.albedo_color = Color("#f1c7dd")
+                  material.roughness = 0.8
+
+                  flower.material_override = material
+
+                  add_child(flower)
+
+          func _create_rocks() -> void:
+              for i in range(35):
+                  var rock := MeshInstance3D.new()
+
+                  var mesh := SphereMesh.new()
+                  mesh.radius = 0.55 + float(i % 3) * 0.25
+                  mesh.height = 0.7 + float(i % 2) * 0.25
+
+                  rock.mesh = mesh
+
+                  rock.position = Vector3(
+                      float((i * 23) % 68) - 34.0,
+                      0.35,
+                      float((i * 37) % 68) - 34.0
+                  )
+
+                  rock.scale = Vector3(1.3, 0.65, 1.0)
+
+                  var material := StandardMaterial3D.new()
+                  material.albedo_color = Color("#777d7b")
+                  material.roughness = 1.0
+
+                  rock.material_override = material
+
+                  add_child(rock)
+
+          func _create_resources() -> void:
+              for i in range(12):
+                  var resource := MeshInstance3D.new()
+
+                  var mesh := SphereMesh.new()
+                  mesh.radius = 0.65
+                  mesh.height = 1.2
+
+                  resource.mesh = mesh
+
+                  resource.position = Vector3(
+                      float((i * 29) % 54) - 27.0,
+                      0.7,
+                      float((i * 41) % 54) - 27.0
+                  )
+
+                  var material := StandardMaterial3D.new()
+                  material.albedo_color = Color("#a66c43")
+                  material.roughness = 0.8
+
+                  resource.material_override = material
+
+                  add_child(resource)
+                  resources.append(resource)
+
+          func _create_camp() -> void:
+              var camp := Node3D.new()
+
+              camp.position = Vector3(0.0, 0.0, 4.0)
+
+              add_child(camp)
+
+              var fire := OmniLight3D.new()
+
+              fire.light_color = Color("#ff9b3d")
+              fire.light_energy = 2.2
+              fire.omni_range = 9.0
+              fire.position.y = 1.2
+
+              camp.add_child(fire)
+
+              var flame := MeshInstance3D.new()
+
+              var flame_mesh := SphereMesh.new()
+              flame_mesh.radius = 0.55
+              flame_mesh.height = 1.7
+
+              flame.mesh = flame_mesh
+              flame.position.y = 1.1
+
+              var flame_mat := StandardMaterial3D.new()
+              flame_mat.albedo_color = Color("#ff8c2f")
+              flame_mat.emission_enabled = true
+              flame_mat.emission = Color("#ff6a1a")
+              flame_mat.emission_energy_multiplier = 2.5
+
+              flame.material_override = flame_mat
+
+              camp.add_child(flame)
+
+              for x in [-0.8, 0.8]:
+                  var log := MeshInstance3D.new()
+
+                  var log_mesh := CylinderMesh.new()
+                  log_mesh.top_radius = 0.22
+                  log_mesh.bottom_radius = 0.22
+                  log_mesh.height = 1.7
+
+                  log.mesh = log_mesh
+                  log.rotation_degrees.z = 90.0
+                  log.position = Vector3(x, 0.22, 0.0)
+
+                  var log_mat := StandardMaterial3D.new()
+                  log_mat.albedo_color = Color("#65442f")
+
+                  log.material_override = log_mat
+
+                  camp.add_child(log)
+
+              var camp_label := Label3D.new()
+
+              camp_label.text = "ACAMPAMENTO"
+              camp_label.font_size = 32
+              camp_label.outline_size = 8
+              camp_label.position.y = 3.0
+
+              camp.add_child(camp_label)
+
+          func _create_player() -> void:
+              player = CharacterBody3D.new()
+
+              player.name = "Player"
+              player.position = Vector3(0.0, 2.0, 0.0)
+
+              add_child(player)
+
+              var collision := CollisionShape3D.new()
+
+              var shape := CapsuleShape3D.new()
+              shape.radius = 0.42
+              shape.height = 1.8
+
+              collision.shape = shape
+              collision.position.y = 0.9
+
+              player.add_child(collision)
+
+              var body := MeshInstance3D.new()
+
+              var body_mesh := CapsuleMesh.new()
+              body_mesh.radius = 0.42
+              body_mesh.height = 1.8
+
+              body.mesh = body_mesh
+              body.position.y = 0.9
+
+              var body_mat := StandardMaterial3D.new()
+              body_mat.albedo_color = Color("#d6a06a")
+              body_mat.roughness = 0.75
+
+              body.material_override = body_mat
+
+              player.add_child(body)
+
+              var backpack := MeshInstance3D.new()
+
+              var backpack_mesh := BoxMesh.new()
+              backpack_mesh.size = Vector3(0.65, 0.75, 0.25)
+
+              backpack.mesh = backpack_mesh
+              backpack.position = Vector3(0.0, 1.0, 0.38)
+
+              var backpack_mat := StandardMaterial3D.new()
+              backpack_mat.albedo_color = Color("#5c4030")
+
+              backpack.material_override = backpack_mat
+
+              player.add_child(backpack)
+
+          func _create_camera() -> void:
+              camera = Camera3D.new()
+
+              camera.current = true
+
+              add_child(camera)
+
+              camera.global_position = Vector3(0.0, 6.0, 9.0)
+
+          func _update_player(delta: float) -> void:
+              if player == null:
+                  return
+
+              var keyboard := Input.get_vector(
+                  "move_left",
+                  "move_right",
+                  "move_forward",
+                  "move_back"
+              )
+
+              var direction := Vector3(
+                  keyboard.x + joystick_value.x,
+                  0.0,
+                  keyboard.y + joystick_value.y
+              )
+
+              if direction.length() > 1.0:
+                  direction = direction.normalized()
+
+              var speed: float = 4.0
+
+              if Input.is_action_pressed("sprint") and stamina > 1.0:
+                  speed = 6.5
+                  stamina = maxf(
+                      stamina - delta * 18.0,
+                      0.0
+                  )
+              else:
+                  stamina = minf(
+                      stamina + delta * 10.0,
+                      100.0
+                  )
+
+              player.velocity.x = direction.x * speed
+              player.velocity.z = direction.z * speed
+
+              if Input.is_action_just_pressed("jump"):
+                  if player.is_on_floor():
+                      player.velocity.y = 7.0
+
+              if direction.length() > 0.05:
+                  player.rotation.y = lerp_angle(
+                      player.rotation.y,
+                      atan2(direction.x, direction.z),
+                      delta * 8.0
+                  )
+
+              var target := player.global_position + Vector3(0.0, 1.4, 0.0)
+
+              var cam_offset := Vector3(
+                  0.0,
+                  4.8,
+                  7.5
+              )
+
+              var rotated_offset := cam_offset.rotated(
+                  Vector3.UP,
+                  player.rotation.y
+              )
+
+              camera.global_position = camera.global_position.lerp(
+                  target + rotated_offset,
+                  delta * 5.0
+              )
+
+              camera.look_at(
+                  target,
+                  Vector3.UP
+              )
+
+              _collect_nearby()
+              _camp_interaction()
+
+          func _collect_nearby() -> void:
+              if player == null:
+                  return
+
+              for resource in resources:
+                  if not is_instance_valid(resource):
+                      continue
+
+                  if resource.visible:
+                      var distance: float = resource.global_position.distance_to(
+                          player.global_position
+                      )
+
+                      if distance < 2.3:
+                          resource.visible = false
+
+                          wood += 2
+
+                          if ui_status:
+                              ui_status.text = "MADEIRA COLETADA +2"
+
+                          _save_game()
+
+          func _camp_interaction() -> void:
+              if player == null:
+                  return
+
+              var camp_pos := Vector3(
+                  0.0,
+                  0.0,
+                  4.0
+              )
+
+              var distance: float = player.global_position.distance_to(
+                  camp_pos
+              )
+
+              if distance < 4.0:
+                  life = minf(
+                      life + 8.0 * get_physics_process_delta_time(),
+                      100.0
+                  )
+
+                  stamina = minf(
+                      stamina + 20.0 * get_physics_process_delta_time(),
+                      100.0
+                  )
+
+                  if ui_status:
+                      ui_status.text = "ACAMPAMENTO • RECUPERANDO"
+
+          func _update_day_night(delta: float) -> void:
+              day_time += delta * 0.012
+
+              if day_time > 1.0:
+                  day_time -= 1.0
+
+              var angle: float = day_time * TAU
+
+              if sun:
+                  sun.rotation_degrees = Vector3(
+                      rad_to_deg(angle) - 90.0,
+                      -28.0,
+                      0.0
+                  )
+
+                  var daylight: float = clampf(
+                      sin(angle) * 0.5 + 0.5,
+                      0.08,
+                      1.0
+                  )
+
+                  sun.light_energy = (
+                      0.25 +
+                      daylight * 1.05
+                  )
+
+                  if environment:
+                      environment.background_color = Color(
+                          0.05 + daylight * 0.42,
+                          0.10 + daylight * 0.60,
+                          0.18 + daylight * 0.68
+                      )
+
+          func _create_hud() -> void:
+              var layer := CanvasLayer.new()
+
+              layer.name = "HUD"
+
+              add_child(layer)
+
+              ui_life = Label.new()
+              ui_life.position = Vector2(35, 30)
+              ui_life.add_theme_font_size_override(
+                  "font_size",
+                  28
+              )
+
+              layer.add_child(ui_life)
+
+              ui_stamina = Label.new()
+              ui_stamina.position = Vector2(35, 68)
+              ui_stamina.add_theme_font_size_override(
+                  "font_size",
+                  22
+              )
+
+              layer.add_child(ui_stamina)
+
+              ui_inventory = Label.new()
+              ui_inventory.position = Vector2(35, 105)
+              ui_inventory.add_theme_font_size_override(
+                  "font_size",
+                  21
+              )
+
+              layer.add_child(ui_inventory)
+
+              ui_status = Label.new()
+              ui_status.position = Vector2(35, 145)
+              ui_status.add_theme_font_size_override(
+                  "font_size",
+                  20
+              )
+
+              ui_status.text = "EXPLORE O MUNDO"
+
+              layer.add_child(ui_status)
+
+              ui_time = Label.new()
+              ui_time.position = Vector2(1030, 30)
+              ui_time.add_theme_font_size_override(
+                  "font_size",
+                  22
+              )
+
+              layer.add_child(ui_time)
+
+              var title := Label.new()
+
+              title.text = "MUNDO V1"
+              title.position = Vector2(35, 190)
+
+              title.add_theme_font_size_override(
+                  "font_size",
+                  34
+              )
+
+              layer.add_child(title)
+
+              var subtitle := Label.new()
+
+              subtitle.text = "V2.8 • SURVIVAL 3D"
+              subtitle.position = Vector2(38, 228)
+
+              subtitle.add_theme_font_size_override(
+                  "font_size",
+                  18
+              )
+
+              layer.add_child(subtitle)
+
+              _create_touch_controls(layer)
+
+          func _create_touch_controls(layer: CanvasLayer) -> void:
+              var left := Button.new()
+
+              left.text = "◀"
+              left.position = Vector2(55, 560)
+              left.size = Vector2(80, 80)
+
+              left.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
+
+              layer.add_child(left)
+
+              var right := Button.new()
+
+              right.text = "▶"
+              right.position = Vector2(215, 560)
+              right.size = Vector2(80, 80)
+
+              right.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
+
+              layer.add_child(right)
+
+              var forward := Button.new()
+
+              forward.text = "▲"
+              forward.position = Vector2(135, 495)
+              forward.size = Vector2(80, 80)
+
+              forward.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
+
+              layer.add_child(forward)
+
+              var back := Button.new()
+
+              back.text = "▼"
+              back.position = Vector2(135, 625)
+              back.size = Vector2(80, 80)
+
+              back.add_theme_font_size_override(
+                  "font_size",
+                  32
+              )
+
+              layer.add_child(back)
+
+              var jump_button := Button.new()
+
+              jump_button.text = "PULAR"
+              jump_button.position = Vector2(1060, 555)
+              jump_button.size = Vector2(160, 70)
+
+              jump_button.add_theme_font_size_override(
+                  "font_size",
+                  22
+              )
+
+              jump_button.pressed.connect(
+                  _jump_pressed
+              )
+
+              layer.add_child(jump_button)
+
+              var sprint_button := Button.new()
+
+              sprint_button.text = "CORRER"
+              sprint_button.position = Vector2(1060, 640)
+              sprint_button.size = Vector2(160, 70)
+
+              sprint_button.add_theme_font_size_override(
+                  "font_size",
+                  20
+              )
+
+              sprint_button.button_down.connect(
+                  _sprint_down
+              )
+
+              sprint_button.button_up.connect(
+                  _sprint_up
+              )
+
+              layer.add_child(sprint_button)
+
+              left.button_down.connect(
+                  _left_down
+              )
+
+              left.button_up.connect(
+                  _direction_up
+              )
+
+              right.button_down.connect(
+                  _right_down
+              )
+
+              right.button_up.connect(
+                  _direction_up
+              )
+
+              forward.button_down.connect(
+                  _forward_down
+              )
+
+              forward.button_up.connect(
+                  _direction_up
+              )
+
+              back.button_down.connect(
+                  _back_down
+              )
+
+              back.button_up.connect(
+                  _direction_up
+              )
+
+          func _left_down() -> void:
+              joystick_value = Vector2(-1.0, 0.0)
+
+          func _right_down() -> void:
+              joystick_value = Vector2(1.0, 0.0)
+
+          func _forward_down() -> void:
+              joystick_value = Vector2(0.0, -1.0)
+
+          func _back_down() -> void:
+              joystick_value = Vector2(0.0, 1.0)
+
+          func _direction_up() -> void:
+              joystick_value = Vector2.ZERO
+
+          func _jump_pressed() -> void:
+              if player and player.is_on_floor():
+                  player.velocity.y = 7.0
+
+          func _sprint_down() -> void:
+              Input.action_press("sprint")
+
+          func _sprint_up() -> void:
+              Input.action_release("sprint")
+
+          func _update_hud() -> void:
+              if ui_life:
+                  ui_life.text = "VIDA: %d%%" % int(life)
+
+              if ui_stamina:
+                  ui_stamina.text = "ENERGIA: %d%%" % int(stamina)
+
+              if ui_inventory:
+                  ui_inventory.text = (
+                      "MADEIRA: %d   PEDRA: %d   CRISTAL: %d"
+                      % [wood, stone, crystal]
+                  )
+
+              if ui_time:
+                  var hour: int = int(day_time * 24.0)
+
+                  var minute: int = int(
+                      fmod(
+                          day_time * 24.0 * 60.0,
+                          60.0
+                      )
+                  )
+
+                  ui_time.text = (
+                      "%02d:%02d"
+                      % [hour, minute]
+                  )
+
+          func _save_game() -> void:
+              var data := {
+                  "wood": wood,
+                  "stone": stone,
+                  "crystal": crystal,
+                  "life": life,
+                  "stamina": stamina,
+                  "day_time": day_time
+              }
+
+              var file := FileAccess.open(
+                  save_path,
+                  FileAccess.WRITE
+              )
+
+              if file:
+                  file.store_string(
+                      JSON.stringify(data)
+                  )
+
+                  file.close()
+
+          func _load_game() -> void:
+              if not FileAccess.file_exists(save_path):
+                  return
+
+              var file := FileAccess.open(
+                  save_path,
+                  FileAccess.READ
+              )
+
+              if file == null:
+                  return
+
+              var content: String = file.get_as_text()
+
               file.close()
 
-      func _load_game() -> void:
-          if not FileAccess.file_exists(save_path):
-              return
+              var parsed = JSON.parse_string(
+                  content
+              )
 
-          var file := FileAccess.open(save_path, FileAccess.READ)
+              if typeof(parsed) != TYPE_DICTIONARY:
+                  return
 
-          if file == null:
-              return
+              if parsed.has("wood"):
+                  wood = int(parsed["wood"])
 
-          var content := file.get_as_text()
-          file.close()
+              if parsed.has("stone"):
+                  stone = int(parsed["stone"])
 
-          var parsed = JSON.parse_string(content)
+              if parsed.has("crystal"):
+                  crystal = int(parsed["crystal"])
 
-          if typeof(parsed) != TYPE_DICTIONARY:
-              return
+              if parsed.has("life"):
+                  life = float(parsed["life"])
 
-          if parsed.has("wood"):
-              wood = int(parsed["wood"])
+              if parsed.has("stamina"):
+                  stamina = float(parsed["stamina"])
 
-          if parsed.has("stone"):
-              stone = int(parsed["stone"])
+              if parsed.has("day_time"):
+                  day_time = float(parsed["day_time"])
+          EOF
 
-          if parsed.has("crystal"):
-              crystal = int(parsed["crystal"])
+      - name: Criar export_presets.cfg
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-          if parsed.has("life"):
-              life = float(parsed["life"])
+          cat > export_presets.cfg <<'EOF'
+          [preset.0]
 
-          if parsed.has("stamina"):
-              stamina = float(parsed["stamina"])
+          name="Android"
+          platform="Android"
+          runnable=true
+          advanced_options=true
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
 
-          if parsed.has("day_time"):
-              day_time = float(parsed["day_time"])
-      EOF
+          [preset.0.options]
 
-  - name: Criar export_presets.cfg
-    shell: bash
-    run: |
-      set -euxo pipefail
+          custom_template/debug=""
+          custom_template/release=""
 
-      cat > export_presets.cfg <<'EOF'
-      [preset.0]
+          gradle_build/use_gradle_build=false
 
-      name="Android"
-      platform="Android"
-      runnable=true
-      advanced_options=true
-      export_filter="all_resources"
-      include_filter=""
-      exclude_filter=""
+          package/unique_name="com.mundov1.game"
+          package/name="MUNDO V1"
+          package/short_name="MUNDO V1"
 
-      [preset.0.options]
+          version/code=28
+          version/name="2.8"
 
-      custom_template/debug=""
-      custom_template/release=""
+          architectures/armeabi-v7a=false
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=false
 
-      gradle_build/use_gradle_build=false
+          graphics/opengl3=true
 
-      package/unique_name="com.mundov1.game"
-      package/name="MUNDO V1"
-      package/short_name="MUNDO V1"
+          command_line/extra_args=""
 
-      version/code=28
-      version/name="2.8"
+          screen/immersive_mode=true
+          screen/edge_to_edge=true
 
-      architectures/armeabi-v7a=false
-      architectures/arm64-v8a=true
-      architectures/x86=false
-      architectures/x86_64=false
+          launcher_icons/main_192x192="res://icon.svg"
+          launcher_icons/adaptive_foreground_432x432="res://icon.svg"
+          launcher_icons/adaptive_background_432x432=""
+          launcher_icons/adaptive_monochrome_432x432=""
 
-      graphics/opengl3=true
+          keystore/debug="/home/runner/.android/debug.keystore"
+          keystore/debug_user="androiddebugkey"
+          keystore/debug_password="android"
+          EOF
 
-      command_line/extra_args=""
+          test -f export_presets.cfg
 
-      screen/immersive_mode=true
-      screen/edge_to_edge=true
+          grep -q 'name="Android"' export_presets.cfg
+          grep -q 'version/code=28' export_presets.cfg
+          grep -q 'architectures/arm64-v8a=true' export_presets.cfg
 
-      launcher_icons/main_192x192="res://icon.svg"
-      launcher_icons/adaptive_foreground_432x432="res://icon.svg"
-      launcher_icons/adaptive_background_432x432=""
-      launcher_icons/adaptive_monochrome_432x432=""
+      - name: Validar projeto Godot
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      keystore/debug="/home/runner/.android/debug.keystore"
-      keystore/debug_user="androiddebugkey"
-      keystore/debug_password="android"
-      EOF
+          GODOT="$HOME/godot/godot"
 
-  - name: Validar projeto Godot
-    shell: bash
-    run: |
-      set -euxo pipefail
+          test -x "$GODOT"
+          test -f project.godot
+          test -f main.tscn
+          test -f scripts/main.gd
+          test -f export_presets.cfg
+          test -f icon.svg
 
-      GODOT="$HOME/godot/godot"
+          "$GODOT" \
+            --headless \
+            --editor \
+            --path . \
+            --quit
 
-      test -x "$GODOT"
-      test -f project.godot
-      test -f main.tscn
-      test -f scripts/main.gd
-      test -f export_presets.cfg
-      test -f icon.svg
+      - name: Exportar APK MUNDO V1 V2.8
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      "$GODOT" \
-        --headless \
-        --editor \
-        --path . \
-        --quit
+          GODOT="$HOME/godot/godot"
 
-  - name: Verificar preset Android
-    shell: bash
-    run: |
-      set -euxo pipefail
+          rm -f build/MundoV1-V2.8.apk
 
-      GODOT="$HOME/godot/godot"
+          "$GODOT" \
+            --headless \
+            --path . \
+            --export-debug \
+            "Android" \
+            "build/MundoV1-V2.8.apk"
 
-      "$GODOT" \
-        --headless \
-        --path . \
-        --export-debug \
-        "Android" \
-        "build/test-mundo-v1.apk" \
-        --quit || true
+          test -f build/MundoV1-V2.8.apk
 
-      test -f export_presets.cfg
+          ls -lh build/MundoV1-V2.8.apk
 
-      grep -q 'name="Android"' export_presets.cfg
-      grep -q 'version/code=28' export_presets.cfg
-      grep -q 'architectures/arm64-v8a=true' export_presets.cfg
+      - name: Verificar assinatura do APK
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-  - name: Exportar APK V2.8
-    shell: bash
-    run: |
-      set -euxo pipefail
+          APK="build/MundoV1-V2.8.apk"
 
-      GODOT="$HOME/godot/godot"
+          test -f "$APK"
 
-      rm -f build/test-mundo-v1.apk
-      rm -f build/MundoV1-V2.8.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
+            verify \
+            --verbose \
+            "$APK"
 
-      "$GODOT" \
-        --headless \
-        --path . \
-        --export-debug \
-        "Android" \
-        "build/MundoV1-V2.8.apk"
+      - name: Mostrar informações do APK
+        shell: bash
+        run: |
+          set -euxo pipefail
 
-      test -f build/MundoV1-V2.8.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" \
+            dump badging \
+            build/MundoV1-V2.8.apk | head -n 30
 
-      ls -lh build/MundoV1-V2.8.apk
-
-  - name: Verificar APK
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      APK="build/MundoV1-V2.8.apk"
-
-      test -f "$APK"
-
-      "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
-        verify \
-        --verbose \
-        "$APK"
-
-      "$ANDROID_HOME/build-tools/34.0.0/aapt" \
-        dump badging \
-        "$APK" | head -n 30
-
-  - name: Publicar APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: MUNDO-V1-V2.8-SURVIVAL-3D-ARM64
-      path: build/MundoV1-V2.8.apk
-      if-no-files-found: error
-      retention-days: 14
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MUNDO-V1-V2.8-SURVIVAL-3D-ARM64
+          path: build/MundoV1-V2.8.apk
+          if-no-files-found: error
+          retention-days: 14
