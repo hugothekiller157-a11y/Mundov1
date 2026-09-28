@@ -28,6 +28,7 @@ jobs:
           mkdir -p "$ANDROID_HOME/cmdline-tools"
 
           cd /tmp
+
           curl -L -o commandlinetools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
@@ -87,8 +88,6 @@ jobs:
 
           cp -R templates_unpacked/templates/* \
             "$HOME/.local/share/godot/export_templates/4.3.stable/"
-
-          ls -la "$HOME/.local/share/godot/export_templates/4.3.stable"
 
       - name: Criar projeto MUNDO V1.7
         shell: bash
@@ -226,11 +225,9 @@ jobs:
 
               env.background_mode = Environment.BG_COLOR
               env.background_color = Color("#79bce8")
-
               env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
               env.ambient_light_color = Color("#e1efff")
               env.ambient_light_energy = 0.8
-
               env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
               env.tonemap_exposure = 1.05
               env.tonemap_white = 1.1
@@ -240,24 +237,20 @@ jobs:
 
           func create_lighting():
               var sun = DirectionalLight3D.new()
-
               sun.rotation_degrees = Vector3(-50, -32, 0)
               sun.light_energy = 1.3
               sun.shadow_enabled = true
               sun.directional_shadow_max_distance = 80.0
-
               add_child(sun)
 
           func create_ground():
               var ground = MeshInstance3D.new()
               var mesh = PlaneMesh.new()
-
               mesh.size = Vector2(110, 110)
 
               ground.mesh = mesh
               ground.position.y = -0.05
               ground.material_override = make_material(Color("#5f9448"), 1.0)
-
               add_child(ground)
 
               var body = StaticBody3D.new()
@@ -265,10 +258,9 @@ jobs:
 
               var collision = CollisionShape3D.new()
               var shape = BoxShape3D.new()
-
               shape.size = Vector3(110, 1, 110)
-              collision.shape = shape
 
+              collision.shape = shape
               body.add_child(collision)
               add_child(body)
 
@@ -291,7 +283,6 @@ jobs:
               material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 
               water.material_override = material
-
               add_child(water)
 
           func create_hills():
@@ -323,11 +314,7 @@ jobs:
                   hill.mesh = mesh
                   hill.position = positions[i]
                   hill.scale = scales[i]
-
-                  hill.material_override = make_material(
-                      Color("#4f833f"),
-                      1.0
-                  )
+                  hill.material_override = make_material(Color("#4f833f"), 1.0)
 
                   add_child(hill)
 
@@ -351,16 +338,11 @@ jobs:
                   patch.mesh = mesh
                   patch.position = pos
                   patch.scale = Vector3(4.5, 0.08, 3.0)
-
-                  patch.material_override = make_material(
-                      Color("#d8bd78"),
-                      1.0
-                  )
+                  patch.material_override = make_material(Color("#d8bd78"), 1.0)
 
                   add_child(patch)
 
           func create_vegetation():
-              # Árvores grandes
               create_tree(Vector3(-12, 0, -10), 1.25, Color("#3f873e"))
               create_tree(Vector3(-7, 0, -16), 1.0, Color("#4d9945"))
               create_tree(Vector3(-25, 0, -7), 1.45, Color("#397a39"))
@@ -369,20 +351,17 @@ jobs:
               create_tree(Vector3(-29, 0, 25), 1.35, Color("#3d843b"))
               create_tree(Vector3(22, 0, 27), 1.0, Color("#4a9442"))
 
-              # Árvores médias
               create_tree(Vector3(-2, 0, -25), 0.82, Color("#58a94e"))
               create_tree(Vector3(14, 0, -25), 0.95, Color("#438d3d"))
               create_tree(Vector3(-32, 0, -20), 0.9, Color("#5ba64d"))
               create_tree(Vector3(35, 0, -2), 0.82, Color("#4c9845"))
 
-              # Pinheiros
               create_pine(Vector3(-22, 0, -25), 1.3)
               create_pine(Vector3(24, 0, -28), 1.15)
               create_pine(Vector3(-36, 0, 5), 1.0)
               create_pine(Vector3(35, 0, 24), 1.25)
               create_pine(Vector3(10, 0, 30), 0.9)
 
-              # Arbustos
               var bushes = [
                   Vector3(-16, 0, -4),
                   Vector3(-10, 0, 4),
@@ -402,7 +381,6 @@ jobs:
                       Color("#4d963f")
                   )
 
-              # Grupos de vegetação baixa
               var grass_groups = [
                   Vector3(-18, 0, 2),
                   Vector3(-13, 0, 12),
@@ -417,7 +395,6 @@ jobs:
               for pos in grass_groups:
                   create_grass_cluster(pos)
 
-              # Pequenos pontos de flores
               create_flowers(Vector3(-8, 0, 11))
               create_flowers(Vector3(8, 0, 17))
               create_flowers(Vector3(27, 0, 12))
@@ -469,8 +446,10 @@ jobs:
                   crown.position = crown_positions[i]
                   crown.scale = crown_scales[i]
 
-                  var shade = crown_color.lightened(float(i) * 0.025)
-                  crown.material_override = make_material(shade, 0.95)
+                  crown.material_override = make_material(
+                      crown_color.lightened(float(i) * 0.025),
+                      0.95
+                  )
 
                   tree.add_child(crown)
 
@@ -510,10 +489,7 @@ jobs:
 
                   cone.mesh = mesh
                   cone.position.y = data[0]
-                  cone.material_override = make_material(
-                      Color("#32743c"),
-                      1.0
-                  )
+                  cone.material_override = make_material(Color("#32743c"), 1.0)
 
                   pine.add_child(cone)
 
@@ -633,11 +609,7 @@ jobs:
                   )
 
                   rock.rotation_degrees.y = float(i * 31)
-
-                  rock.material_override = make_material(
-                      Color("#77766d"),
-                      0.92
-                  )
+                  rock.material_override = make_material(Color("#77766d"), 0.92)
 
                   add_child(rock)
 
@@ -742,7 +714,6 @@ jobs:
               jump.position = Vector2(1080, 575)
               jump.size = Vector2(140, 55)
               layer.add_child(jump)
-
               jump.pressed.connect(_on_jump)
 
               var explore = Button.new()
@@ -819,7 +790,7 @@ jobs:
               )
           EOF
 
-      - name: Criar preset Android ARM64
+      - name: Criar preset Android CORRIGIDO
         shell: bash
         run: |
           set -euxo pipefail
@@ -831,6 +802,9 @@ jobs:
           platform="Android"
           runnable=true
           advanced_options=false
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
 
           [preset.0.options]
 
@@ -853,34 +827,70 @@ jobs:
           graphics/opengl3=true
 
           keystore/debug=""
-          keystore/debug_user="androiddebugkey"
-          keystore/debug_password="android"
+          keystore/debug_user=""
+          keystore/debug_password=""
 
           permissions/internet=false
           EOF
 
-      - name: Criar chave debug Android
+      - name: Criar debug keystore e configurar preset
         shell: bash
         run: |
           set -euxo pipefail
 
           mkdir -p "$HOME/.android"
 
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool \
-              -genkeypair \
-              -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          keytool \
+            -genkeypair \
+            -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
-          ls -lh "$HOME/.android/debug.keystore"
+          cat > export_presets.cfg <<'EOF'
+          [preset.0]
+
+          name="Android"
+          platform="Android"
+          runnable=true
+          advanced_options=false
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+
+          [preset.0.options]
+
+          custom_template/debug=""
+          custom_template/release=""
+
+          package/unique_name="com.mundov1.game"
+          package/name="MUNDO V1"
+          package/version_code=17
+          package/version_name="1.7"
+
+          package/architecture/arm64-v8a=true
+          package/architecture/armeabi-v7a=false
+          package/architecture/x86=false
+          package/architecture/x86_64=false
+
+          screen/immersive_mode=true
+          screen/edge_to_edge=true
+
+          graphics/opengl3=true
+
+          keystore/debug="/home/runner/.android/debug.keystore"
+          keystore/debug_user="androiddebugkey"
+          keystore/debug_password="android"
+
+          permissions/internet=false
+          EOF
+
+          test -f "$HOME/.android/debug.keystore"
 
       - name: Validar projeto Godot
         shell: bash
